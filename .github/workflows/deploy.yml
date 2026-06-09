@@ -11,14 +11,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ubuntu
           key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          timeout: 60s
           script: |
+            whoami
             cd /home/ubuntu/MC-DC-Whitelister
             git pull origin main
-            npm --prefix discord-bot install
+            npm --prefix discord-bot install 2>&1
             sudo systemctl restart whitelist-bot
             echo "Deploy complete"
