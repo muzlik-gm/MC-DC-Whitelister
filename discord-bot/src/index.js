@@ -158,6 +158,29 @@ client.on('guildCreate', async (guild) => {
   }
 });
 
+client.on('guildMemberAdd', async (member) => {
+  try {
+    const onboarding = require('./database/onboarding');
+    const config = onboarding.getConfig(member.guild.id);
+    if (!config || !config.enabled) return;
+
+    if (config.auto_role_id) {
+      const role = member.guild.roles.cache.get(config.auto_role_id);
+      if (role) await member.roles.add(role).catch(() => {});
+    }
+
+    if (config.welcome_channel_id) {
+      const channel = member.guild.channels.cache.get(config.welcome_channel_id);
+      if (channel) {
+        const msg = config.welcome_message || 'Welcome {user}!';
+        await channel.send(msg.replace('{user}', `<@${member.id}>`).replace('{server}', member.guild.name)).catch(() => {});
+      }
+    }
+  } catch (err) {
+    logger.error('Onboarding', 'guildMemberAdd handler error', err);
+  }
+});
+
 client.on('messageCreate', (message) => {
   handleMessage(message);
 });

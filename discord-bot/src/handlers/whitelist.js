@@ -1,4 +1,5 @@
 const whitelistDb = require('../database/whitelist');
+const referralsDb = require('../database/referrals');
 const guilds = require('../database/guilds');
 const rolesDb = require('../database/roles');
 const MinecraftApi = require('../services/MinecraftApi');
@@ -77,6 +78,18 @@ async function whitelist(ctx) {
 
   cooldowns.set(ctx.userId, now + COOLDOWN_MS);
   setTimeout(() => cooldowns.delete(ctx.userId), COOLDOWN_MS);
+
+  const ref = ctx.options.get('ref');
+  if (ref) {
+    const referrer = whitelistDb.getByMinecraftUsername(ctx.guildId, ref) || whitelistDb.getLink(ctx.guildId, ref);
+    if (referrer && referrer.discord_id !== ctx.userId) {
+      const refResult = referralsDb.addReferral(ctx.guildId, referrer.discord_id, ctx.userId, username);
+      if (refResult.ok) {
+        const api2 = new MinecraftApi(ctx.guildConfig);
+        await api2.rewardPlayer(referrer.minecraft_username, `say Thanks for referring ${username}!`).catch(() => {});
+      }
+    }
+  }
 
   const memberRoles = ctx.member.roles.cache.map(r => r.id);
   const group = rolesDb.getGroupForRoles(ctx.guildId, memberRoles);

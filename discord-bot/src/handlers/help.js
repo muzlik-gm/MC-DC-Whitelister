@@ -6,8 +6,8 @@ async function help(ctx) {
     .setTitle('🔐 WhitelistBot Commands')
     .setDescription('You can use either slash commands (`/`) or prefix commands (`>`) — they work identically.')
     .addFields(
-      { name: '👤 Player Commands', value: '`>whitelist <username>` / `/whitelist` — Link your Minecraft account\n`>unlink` / `/unlink` — Remove your account\n`>status` / `/status` — Check your link status', inline: false },
-      { name: '🛠️ Admin Commands', value: '`/setup` — Manual config\n`/pair` — Generate pairing code\n`/connect` — Complete pairing\n`/unlinkserver` — Disconnect server\n`/config` — Configuration panel\n`/console <command>` — Run MC command remotely\n`/logging` — Activity log setup\n`/roles` — Manage role → group mappings\n`/ban <username>` — Ban a player\n`/kick <username>` — Kick a player\n`/warn <username>` — Warn a player\n`/warnings <username>` — View warnings\n`/delwarn <id>` — Remove a warning', inline: false },
+      { name: '👤 Player Commands', value: '`>whitelist <username>` / `/whitelist` — Link your Minecraft account\n`>unlink` / `/unlink` — Remove your account\n`>status` / `/status` — Check your link status\n`/referrals leaderboard` — View top referrers', inline: false },
+      { name: '🛠️ Admin Commands', value: '`/setup` — Manual config\n`/pair` — Generate pairing code\n`/connect` — Complete pairing\n`/unlinkserver` — Disconnect server\n`/config` — Configuration panel\n`/console <command>` — Run MC command remotely\n`/logging` — Activity log setup\n`/roles` — Manage role → group mappings\n`/events` — Community events\n`/onboarding` — Welcome message setup\n`/ban <username>` — Ban a player\n`/kick <username>` — Kick a player\n`/warn <username>` — Warn a player\n`/warnings <username>` — View warnings\n`/delwarn <id>` — Remove a warning', inline: false },
       { name: 'ℹ️ Info Commands', value: '`>tutorial` / `/tutorial` — Full setup guide\n`>help` / `/help` — This message\n`>about` / `/about` — Bot info', inline: false }
     );
 

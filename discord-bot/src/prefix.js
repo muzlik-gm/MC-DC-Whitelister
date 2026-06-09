@@ -24,9 +24,12 @@ const handlers = {
   warn: require('./handlers/moderation'),
   warnings: require('./handlers/moderation'),
   delwarn: require('./handlers/moderation'),
+  referrals: require('./handlers/referrals'),
+  events: require('./handlers/events'),
+  onboarding: require('./handlers/onboarding'),
 };
 
-const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config', 'console', 'logging', 'roles', 'ban', 'kick', 'warn', 'delwarn']);
+const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config', 'console', 'logging', 'roles', 'ban', 'kick', 'warn', 'delwarn', 'events', 'onboarding']);
 
 // command aliases
 const ALIASES = {
@@ -161,6 +164,32 @@ const COMMAND_META = {
   delwarn: {
     options: [
       { name: 'id', named: false },
+    ]
+  },
+  referrals: {
+    options: [
+      { name: 'sub', named: false },
+    ]
+  },
+  events: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'name', named: true },
+      { name: 'description', named: true },
+      { name: 'mc_command', named: true },
+      { name: 'reward_role', named: true },
+      { name: 'max_participants', named: true },
+      { name: 'starts_at', named: true },
+      { name: 'event_id', named: true },
+      { name: 'minecraft_username', named: true },
+    ]
+  },
+  onboarding: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'channel', named: true },
+      { name: 'text', named: true },
+      { name: 'role', named: true },
     ]
   },
 };

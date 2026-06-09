@@ -11,7 +11,11 @@ module.exports = {
         .setDescription('Your Minecraft username (3-16 chars)')
         .setRequired(true)
         .setMinLength(3)
-        .setMaxLength(16)),
+        .setMaxLength(16))
+    .addStringOption(opt =>
+      opt.setName('ref')
+        .setDescription('Discord ID or Minecraft username of who referred you')
+        .setRequired(false)),
 
   async execute(interaction) {
     const ctx = {

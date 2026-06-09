@@ -144,6 +144,14 @@ class MinecraftApi {
   async warnPlayer(username, reason) {
     return this._request('/api/moderation/warn', { player: username, reason });
   }
+
+  async rewardPlayer(player, command) {
+    return this._request('/api/community/reward', { player, command });
+  }
+
+  async getOnlinePlayers() {
+    return this._get('/api/community/online');
+  }
 }
 
 module.exports = MinecraftApi;

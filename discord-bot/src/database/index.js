@@ -75,6 +75,54 @@ function getDb() {
     )
   `);
 
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS referrals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      referrer_discord_id TEXT NOT NULL,
+      referee_discord_id TEXT NOT NULL,
+      referee_minecraft TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(guild_id, referee_discord_id)
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      mc_command TEXT,
+      reward_role_id TEXT,
+      max_participants INTEGER,
+      starts_at TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS event_participants (
+      event_id INTEGER NOT NULL,
+      discord_id TEXT NOT NULL,
+      minecraft_username TEXT,
+      attended INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (event_id, discord_id)
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS onboarding_config (
+      guild_id TEXT PRIMARY KEY,
+      welcome_channel_id TEXT,
+      welcome_message TEXT,
+      auto_role_id TEXT,
+      tutorial_channel_id TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+
   return _db;
 }
 
