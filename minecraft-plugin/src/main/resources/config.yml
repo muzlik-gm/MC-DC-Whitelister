@@ -1,0 +1,22 @@
+# WhitelistBot — by muzlik
+
+server:
+  host: "127.0.0.1"
+  port: 25252
+
+api-key: "CHANGE_ME_TO_A_SECURE_RANDOM_KEY"
+
+# Unlink settings
+# allow-user-unlink: Whether players can use /wlb unlink
+# cooldown: How long after linking before unlink is allowed
+#   Options: 10m, 30m, 1h, 6h, 1d, 3d, 1w, 2w, 1mo
+unlink:
+  allow-user-unlink: true
+  cooldown: "1w"
+
+# Anti-alt settings
+# enabled: Whether to check for multiple accounts from the same IP
+# max-accounts: Maximum whitelisted accounts allowed per IP address
+anti-alt:
+  enabled: false
+  max-accounts: 1

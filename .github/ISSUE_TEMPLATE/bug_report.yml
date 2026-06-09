@@ -1,0 +1,41 @@
+name: Bug Report
+description: Report a bug in WhitelistBot
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the project is affected?
+      options:
+        - Discord Bot
+        - Minecraft Plugin
+        - Both / Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and steps to reproduce it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / console output
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which version are you running? (discord-bot package.json + plugin version)

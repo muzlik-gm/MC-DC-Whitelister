@@ -1,0 +1,15 @@
+node_modules/
+target/
+*.jar
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets
+discord-bot/config.json
+discord-bot/.env
+
+# OS
+.DS_Store
+Thumbs.db

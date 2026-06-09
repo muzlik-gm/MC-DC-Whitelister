@@ -1,0 +1,26 @@
+{
+  "name": "discord-whitelist-bot",
+  "version": "1.0.0",
+  "private": true,
+  "author": "muzlik",
+  "description": "Discord bot for Minecraft whitelist management",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy.js",
+    "setup": "node -e \"if(!require('fs').existsSync('./config.json')){require('fs').copyFileSync('./config.example.json','./config.json');console.log('Created config.json from example. Edit it with your token and clientId.');}else{console.log('config.json already exists.');}\"",
+    "postinstall": "node -e \"if(!require('fs').existsSync('./config.json')){console.log('\\n=== IMPORTANT ===\\nCreate config.json from config.example.json with your Discord bot token and clientId.\\n=================\\n');}\"",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "discord.js": "^14.16.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
