@@ -53,6 +53,28 @@ function getDb() {
     )
   `);
 
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS role_mappings (
+      guild_id TEXT NOT NULL,
+      discord_role_id TEXT NOT NULL,
+      mc_group TEXT NOT NULL,
+      PRIMARY KEY (guild_id, discord_role_id)
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS warnings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      player_uuid TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      moderator_id TEXT NOT NULL,
+      moderator_name TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   return _db;
 }
 

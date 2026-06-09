@@ -128,6 +128,22 @@ class MinecraftApi {
   async updateConfig(body) {
     return this._request('/api/config', body);
   }
+
+  async syncRoles(discordId, mcUsername, group) {
+    return this._request('/api/roles/sync', { player: mcUsername, group });
+  }
+
+  async banPlayer(username, reason) {
+    return this._request('/api/moderation/ban', { player: username, reason });
+  }
+
+  async kickPlayer(username, reason) {
+    return this._request('/api/moderation/kick', { player: username, reason });
+  }
+
+  async warnPlayer(username, reason) {
+    return this._request('/api/moderation/warn', { player: username, reason });
+  }
 }
 
 module.exports = MinecraftApi;

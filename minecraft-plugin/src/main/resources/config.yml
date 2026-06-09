@@ -20,3 +20,11 @@ unlink:
 anti-alt:
   enabled: false
   max-accounts: 1
+
+# Role sync settings (requires LuckPerms)
+# The Discord bot can map Discord roles to LuckPerms groups
+# Configure mappings using /roles in Discord
+
+# Moderation settings
+# Ban, kick, and warn commands are available via Discord
+# Warnings are stored in the Discord bot's database

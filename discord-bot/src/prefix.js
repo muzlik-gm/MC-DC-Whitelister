@@ -18,9 +18,15 @@ const handlers = {
   config: require('./handlers/config').handleCommand,
   console: require('./handlers/console'),
   logging: require('./handlers/logging'),
+  roles: require('./handlers/roles'),
+  ban: require('./handlers/moderation'),
+  kick: require('./handlers/moderation'),
+  warn: require('./handlers/moderation'),
+  warnings: require('./handlers/moderation'),
+  delwarn: require('./handlers/moderation'),
 };
 
-const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config', 'console', 'logging']);
+const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config', 'console', 'logging', 'roles', 'ban', 'kick', 'warn', 'delwarn']);
 
 // command aliases
 const ALIASES = {
@@ -120,6 +126,41 @@ const COMMAND_META = {
       { name: 'leave', named: true },
       { name: 'death', named: true },
       { name: 'advancement', named: true },
+    ]
+  },
+  roles: {
+    options: [
+      { name: 'action', named: false },
+      { name: 'role', named: false },
+      { name: 'group', named: true },
+    ]
+  },
+  ban: {
+    options: [
+      { name: 'username', named: false },
+      { name: 'reason', named: true },
+    ]
+  },
+  kick: {
+    options: [
+      { name: 'username', named: false },
+      { name: 'reason', named: true },
+    ]
+  },
+  warn: {
+    options: [
+      { name: 'username', named: false },
+      { name: 'reason', named: true },
+    ]
+  },
+  warnings: {
+    options: [
+      { name: 'username', named: false },
+    ]
+  },
+  delwarn: {
+    options: [
+      { name: 'id', named: false },
     ]
   },
 };

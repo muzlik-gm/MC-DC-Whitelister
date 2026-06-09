@@ -22,6 +22,9 @@ function ensureStmts() {
     removeAll: db.prepare(
       'DELETE FROM whitelist_entries WHERE guild_id = ?'
     ),
+    getAllForGuild: db.prepare(
+      'SELECT * FROM whitelist_entries WHERE guild_id = ?'
+    ),
   };
   return stmts;
 }
@@ -66,4 +69,14 @@ function removeAllForGuild(guildId) {
   return { ok: true, removed: count };
 }
 
-module.exports = { linkAccount, unlinkAccount, getLink, removeAllForGuild };
+function getAllForGuild(guildId) {
+  const s = ensureStmts();
+  return s.getAllForGuild.all(guildId);
+}
+
+function getByMinecraftUsername(guildId, minecraftUsername) {
+  const s = ensureStmts();
+  return s.findByMinecraft.get(guildId, minecraftUsername) || null;
+}
+
+module.exports = { linkAccount, unlinkAccount, getLink, removeAllForGuild, getAllForGuild, getByMinecraftUsername };

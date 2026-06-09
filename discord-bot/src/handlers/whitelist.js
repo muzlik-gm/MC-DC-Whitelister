@@ -1,5 +1,6 @@
 const whitelistDb = require('../database/whitelist');
 const guilds = require('../database/guilds');
+const rolesDb = require('../database/roles');
 const MinecraftApi = require('../services/MinecraftApi');
 const { isValidMinecraftUsername } = require('../utils/validation');
 const { EmbedBuilder } = require('discord.js');
@@ -76,6 +77,13 @@ async function whitelist(ctx) {
 
   cooldowns.set(ctx.userId, now + COOLDOWN_MS);
   setTimeout(() => cooldowns.delete(ctx.userId), COOLDOWN_MS);
+
+  const memberRoles = ctx.member.roles.cache.map(r => r.id);
+  const group = rolesDb.getGroupForRoles(ctx.guildId, memberRoles);
+  if (group) {
+    const syncApi = new MinecraftApi(ctx.guildConfig);
+    await syncApi.syncRoles(ctx.userId, username, group);
+  }
 
   return ctx.editReply({
     embeds: [new EmbedBuilder().setColor(0x2ecc71).setTitle('✅ Whitelisted').setDescription(`You are now whitelisted as **${username}**`).setFooter({ text: 'One account per server. Use >unlink or /unlink to change it.' })]
