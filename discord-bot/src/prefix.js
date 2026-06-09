@@ -16,9 +16,11 @@ const handlers = {
   help: require('./handlers/help'),
   about: require('./handlers/about'),
   config: require('./handlers/config').handleCommand,
+  console: require('./handlers/console'),
+  logging: require('./handlers/logging'),
 };
 
-const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config']);
+const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config', 'console', 'logging']);
 
 // command aliases
 const ALIASES = {
@@ -103,6 +105,21 @@ const COMMAND_META = {
     options: [
       { name: 'ip', named: true, alias: 'ip' },
       { name: 'port', named: true, alias: 'p' },
+    ]
+  },
+  console: {
+    options: [
+      { name: 'command', named: false },
+    ]
+  },
+  logging: {
+    options: [
+      { name: 'action', named: false },
+      { name: 'channel', named: true, alias: 'ch' },
+      { name: 'join', named: true },
+      { name: 'leave', named: true },
+      { name: 'death', named: true },
+      { name: 'advancement', named: true },
     ]
   },
 };

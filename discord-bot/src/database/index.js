@@ -41,6 +41,18 @@ function getDb() {
     )
   `);
 
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS guild_settings (
+      guild_id        TEXT PRIMARY KEY,
+      log_channel_id  TEXT,
+      log_joins       INTEGER NOT NULL DEFAULT 1,
+      log_leaves      INTEGER NOT NULL DEFAULT 1,
+      log_deaths      INTEGER NOT NULL DEFAULT 0,
+      log_advancements INTEGER NOT NULL DEFAULT 1,
+      status_channel_id TEXT
+    )
+  `);
+
   return _db;
 }
 

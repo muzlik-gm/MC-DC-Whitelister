@@ -14,6 +14,25 @@ class MinecraftApi {
     return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
   }
 
+  async _get(endpoint) {
+    try {
+      const res = await this._fetchWithTimeout(`${this.base}${endpoint}`, {
+        method: 'GET',
+        headers: { 'X-API-Key': this.apiKey },
+      });
+      if (res.status === 401) {
+        logger.warn('API', `${endpoint} — 401 Unauthorized`);
+        return { ok: false, error: 'API key rejected by the plugin.', auth_failure: true };
+      }
+      const data = await res.json();
+      if (!res.ok || data.success === false) return { ok: false, error: data.error || 'Request failed' };
+      return { ok: true, ...data };
+    } catch (err) {
+      logger.error('API', `${endpoint} — network error`, err);
+      return { ok: false, error: 'Could not reach the plugin.', unreachable: true };
+    }
+  }
+
   async _request(endpoint, body) {
     let res;
     try {
@@ -69,6 +88,17 @@ class MinecraftApi {
 
   async request(endpoint, body) {
     return this._request(endpoint, body);
+  }
+
+  async getServerStatus() {
+    try {
+      await this._fetchWithTimeout(`${this.base}/api/health`, {
+        headers: { 'X-API-Key': this.apiKey },
+      });
+      return { ok: false };
+    } catch {
+      return { ok: false };
+    }
   }
 
   async healthCheck() {

@@ -5,6 +5,8 @@ import com.whitelistbot.command.WhitelistBotCommand;
 import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.data.DataStore;
 import com.whitelistbot.feature.FeatureManager;
+import com.whitelistbot.feature.activity.ActivityFeature;
+import com.whitelistbot.feature.console.ConsoleFeature;
 import com.whitelistbot.feature.pairing.PairingFeature;
 import com.whitelistbot.feature.whitelist.WhitelistFeature;
 import com.whitelistbot.listener.AntiAltListener;
@@ -43,6 +45,8 @@ public class WhitelistBotPlugin extends JavaPlugin {
 
         featureManager.register(new WhitelistFeature());
         featureManager.register(new PairingFeature());
+        featureManager.register(new ConsoleFeature());
+        featureManager.register(new ActivityFeature());
 
         apiServer = new ApiServer(this, configManager, featureManager);
 

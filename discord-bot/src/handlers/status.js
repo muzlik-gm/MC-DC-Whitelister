@@ -21,12 +21,53 @@ async function status(ctx) {
 
   if (ctx.guildConfig) {
     const api = new MinecraftApi(ctx.guildConfig);
-    const online = await api.healthCheck();
+
+    // Fetch live server details
+    let tps = null;
+    let playerCount = null;
+    let version = null;
+    let uptime = null;
+    let onlinePlayers = null;
+
+    try {
+      const detail = await api.getServerStatus();
+      if (detail.ok) {
+        tps = detail.tps;
+        playerCount = detail.player_count;
+        version = detail.version;
+        uptime = detail.uptime;
+        onlinePlayers = detail.online_players;
+      }
+    } catch {
+      // fallback to just health check
+    }
+
+    const online = tps !== null || await api.healthCheck();
     const statusIcon = online ? '🟢' : '🔴';
+
+    const serverVal = `\`${ctx.guildConfig.mc_host}:${ctx.guildConfig.mc_port}\``;
+    const statusVal = `${statusIcon} ${online ? 'Online' : 'Offline / Unreachable'}`;
+
     embed.addFields(
-      { name: 'Minecraft Server', value: `\`${ctx.guildConfig.mc_host}:${ctx.guildConfig.mc_port}\``, inline: true },
-      { name: 'Status', value: `${statusIcon} ${online ? 'Online' : 'Offline / Unreachable'}`, inline: true }
+      { name: 'Minecraft Server', value: serverVal, inline: true },
+      { name: 'Status', value: statusVal, inline: true }
     );
+
+    if (online && tps !== null) {
+      const tpsVal = typeof tps === 'number' ? tps.toFixed(1) : tps;
+      embed.addFields(
+        { name: 'TPS', value: `\`${tpsVal}\``, inline: true },
+        { name: 'Players', value: `\`${playerCount}\``, inline: true },
+        { name: 'Version', value: `\`${version || 'N/A'}\``, inline: true },
+      );
+      if (uptime) {
+        embed.addFields({ name: 'Uptime', value: `\`${uptime}\``, inline: true });
+      }
+      if (onlinePlayers && onlinePlayers.length > 0) {
+        const list = onlinePlayers.slice(0, 10).join(', ');
+        embed.addFields({ name: 'Online Now', value: list + (onlinePlayers.length > 10 ? ` (+${onlinePlayers.length - 10} more)` : ''), inline: false });
+      }
+    }
   }
 
   return ctx.reply({ embeds: [embed] });

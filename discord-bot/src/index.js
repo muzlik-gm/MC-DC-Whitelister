@@ -5,6 +5,8 @@ const config = require('./config');
 const requireDir = require('./utils/requireDir');
 const { handleMessage } = require('./prefix');
 const logger = require('./utils/logger');
+const settings = require('./database/settings');
+const MinecraftApi = require('./services/MinecraftApi');
 
 const client = new Client({
   intents: [
@@ -82,6 +84,57 @@ client.once('clientReady', async () => {
     await registerGuildCommands(guild.id);
   }
   logger.info('Guilds', `Registered commands for ${guilds.size} guild(s)`);
+
+  // Start activity polling loop
+  const lastPoll = new Map();
+  setInterval(async () => {
+    const now = Math.floor(Date.now() / 1000);
+    for (const [guildId, guild] of client.guilds.cache) {
+      const gc = settings.getSettings(guildId);
+      const guildCfg = require('./database/guilds').getConfig(guildId);
+      if (!gc?.log_channel_id || !guildCfg) continue;
+
+      const since = lastPoll.get(guildId) || now - 30;
+      lastPoll.set(guildId, now);
+
+      const api = new MinecraftApi(guildCfg);
+      const res = await api._get(`/api/activity/poll?since=${since}`);
+      if (!res.ok || !res.events?.length) continue;
+
+      const channel = guild.channels.cache.get(gc.log_channel_id);
+      if (!channel) continue;
+
+      for (const evt of res.events) {
+        const type = evt.type;
+        const player = evt.player;
+        const detail = evt.detail || '';
+
+        let color = 0x2ecc71;
+        let title = '';
+        let desc = '';
+
+        if (type === 'join') { color = 0x2ecc71; title = 'Player Joined'; desc = `**${player}** joined the server`; }
+        else if (type === 'first_join') { color = 0x3498db; title = 'First Join'; desc = `**${player}** joined for the first time!`; }
+        else if (type === 'leave') { color = 0xe67e22; title = 'Player Left'; desc = `**${player}** left the server`; }
+        else if (type === 'death') { color = 0xe74c3c; title = 'Player Died'; desc = detail || `**${player}** died`; }
+        else if (type === 'advancement') {
+          color = 0xf1c40f;
+          title = 'Advancement';
+          const name = detail.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          desc = `**${player}** earned **${name}**`;
+        } else continue;
+
+        if ((type === 'join' && !gc.log_joins) ||
+            (type === 'leave' && !gc.log_leaves) ||
+            (type === 'death' && !gc.log_deaths) ||
+            (type === 'advancement' && !gc.log_advancements)) continue;
+
+        const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
+
+        channel.send({ embeds: [embed] }).catch(() => {});
+      }
+    }
+  }, 15000);
 });
 
 client.on('guildCreate', async (guild) => {
