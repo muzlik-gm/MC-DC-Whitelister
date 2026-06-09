@@ -68,7 +68,7 @@ async function registerGuildCommands(guildId) {
   }
 }
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   logger.info('Bot', `Logged in as ${client.user.tag}`);
   logger.info('Commands', `Loaded ${client.commands.size} commands in memory`);
 
