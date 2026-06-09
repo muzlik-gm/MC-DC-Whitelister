@@ -19,8 +19,9 @@ jobs:
           script_stop: true
           timeout: 60s
           script: |
-            whoami
             cd /home/ubuntu/MC-DC-Whitelister
+            git reset --hard
+            git clean -fd
             git pull origin main
             npm --prefix discord-bot install 2>&1
             sudo systemctl restart whitelist-bot
