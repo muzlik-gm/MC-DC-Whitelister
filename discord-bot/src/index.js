@@ -25,6 +25,11 @@ for (const file of requireDir(commandsPath)) {
   }
 }
 
+function stripMeta(c) {
+  const fields = ['name', 'description', 'options', 'default_member_permissions', 'dm_permission'];
+  return Object.fromEntries(fields.filter(f => c[f] != null).map(f => [f, c[f]]));
+}
+
 async function registerGuildCommands(guildId) {
   const commands = [];
   for (const cmd of client.commands.values()) {
@@ -33,40 +38,37 @@ async function registerGuildCommands(guildId) {
 
   const rest = new REST({ version: '10' }).setToken(config.token);
   try {
-    // Delete any global commands with the same names to prevent duplication
-    try {
-      const globalCommands = await rest.get(Routes.applicationCommands(config.clientId));
-      const cmdNames = new Set(commands.map(c => c.name));
-      for (const gc of globalCommands) {
-        if (cmdNames.has(gc.name)) {
-          await rest.delete(Routes.applicationCommand(config.clientId, gc.id));
-          logger.info('Guilds', `Deleted global command ${gc.name} to prevent duplication`);
+    const existing = await rest.get(Routes.applicationGuildCommands(config.clientId, guildId));
+    const seen = new Set();
+
+    for (const cmd of commands) {
+      const match = existing.find(e => e.name === cmd.name);
+      if (match) {
+        seen.add(match.id);
+        if (JSON.stringify(stripMeta(match)) !== JSON.stringify(cmd)) {
+          await rest.patch(Routes.applicationGuildCommand(config.clientId, guildId, match.id), { body: cmd });
         }
       }
-    } catch {
-      // non-critical — may not have global commands at all
     }
 
-    const existing = await rest.get(Routes.applicationGuildCommands(config.clientId, guildId));
-    const existingIds = existing.map(c => c.id);
-    const newNames = new Set(commands.map(c => c.name));
-
-    const stale = existingIds.filter((_, i) => !newNames.has(existing[i].name));
-    for (const id of stale) {
-      await rest.delete(Routes.applicationGuildCommand(config.clientId, guildId, id));
+    for (const e of existing) {
+      if (!seen.has(e.id)) {
+        await rest.delete(Routes.applicationGuildCommand(config.clientId, guildId, e.id));
+      }
     }
 
-    await rest.put(
-      Routes.applicationGuildCommands(config.clientId, guildId),
-      { body: commands }
-    );
-    logger.info('Guilds', `Registered ${commands.length} commands for guild ${guildId}` + (stale.length ? ` (${stale.length} stale removed)` : ''));
+    const newCmds = commands.filter(c => !existing.find(e => e.name === c.name));
+    for (const cmd of newCmds) {
+      await rest.post(Routes.applicationGuildCommands(config.clientId, guildId), { body: cmd });
+    }
+
+    logger.info('Guilds', `Synced ${commands.length} commands for guild ${guildId} (${newCmds.length} new, ${existing.length - seen.size} removed)`);
   } catch (err) {
     logger.error('Guilds', `Failed to register commands for guild ${guildId}`, err);
   }
 }
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
   logger.info('Bot', `Logged in as ${client.user.tag}`);
   logger.info('Commands', `Loaded ${client.commands.size} commands in memory`);
 
@@ -164,6 +166,16 @@ client.on('interactionCreate', async interaction => {
     }
   }
 });
+
+async function shutdown(signal) {
+  logger.info('Bot', `Received ${signal} — shutting down gracefully`);
+  client.removeAllListeners();
+  await client.destroy().catch(() => {});
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 client.login(config.token).catch(err => {
   logger.error('Bot', 'Login failed', err);

@@ -11,33 +11,63 @@ for (const file of requireDir(path.join(__dirname, 'commands'))) {
   }
 }
 
+function stripMeta(c) {
+  const fields = ['name', 'description', 'options', 'default_member_permissions', 'dm_permission'];
+  return Object.fromEntries(fields.filter(f => c[f] != null).map(f => [f, c[f]]));
+}
+
 const rest = new REST({ version: '10' }).setToken(config.token);
-const guildId = process.argv[2];
+const args = process.argv.slice(2);
+const guildId = args.find(a => !a.startsWith('--'));
+const cleanGlobal = args.includes('--clean-global');
 
 (async () => {
   try {
     if (guildId) {
       console.log(`Deploying ${commands.length} commands to guild ${guildId}...`);
 
-      // Delete any global commands with the same names to prevent duplication
-      try {
-        const globalCommands = await rest.get(Routes.applicationCommands(config.clientId));
-        const cmdNames = new Set(commands.map(c => c.name));
-        for (const gc of globalCommands) {
-          if (cmdNames.has(gc.name)) {
-            await rest.delete(Routes.applicationCommand(config.clientId, gc.id));
-            console.log(`  Deleted global command "${gc.name}" to prevent duplication`);
+      if (cleanGlobal) {
+        console.log('  --clean-global flag set — removing old global commands...');
+        try {
+          const globalCommands = await rest.get(Routes.applicationCommands(config.clientId));
+          const cmdNames = new Set(commands.map(c => c.name));
+          for (const gc of globalCommands) {
+            if (cmdNames.has(gc.name)) {
+              await rest.delete(Routes.applicationCommand(config.clientId, gc.id));
+              console.log(`  Removed stale global command "${gc.name}"`);
+            }
           }
+        } catch {
+          // may not have global commands
         }
-      } catch {
-        // may not have global commands
       }
 
-      const result = await rest.put(
-        Routes.applicationGuildCommands(config.clientId, guildId),
-        { body: commands }
-      );
-      console.log(`Instant deploy to guild complete (${result.length} commands).`);
+      const existing = await rest.get(Routes.applicationGuildCommands(config.clientId, guildId));
+      const seen = new Set();
+
+      for (const cmd of commands) {
+        const match = existing.find(e => e.name === cmd.name);
+        if (match) {
+          seen.add(match.id);
+          if (JSON.stringify(stripMeta(match)) !== JSON.stringify(cmd)) {
+            await rest.patch(Routes.applicationGuildCommand(config.clientId, guildId, match.id), { body: cmd });
+          }
+        }
+      }
+
+      for (const e of existing) {
+        if (!seen.has(e.id)) {
+          await rest.delete(Routes.applicationGuildCommand(config.clientId, guildId, e.id));
+        }
+      }
+
+      const newCmds = commands.filter(c => !existing.find(e => e.name === c.name));
+      for (const cmd of newCmds) {
+        await rest.post(Routes.applicationGuildCommands(config.clientId, guildId), { body: cmd });
+      }
+
+      const total = commands.length;
+      console.log(`Deploy complete — ${total} commands synced to guild ${guildId} (${newCmds.length} new, ${existing.length - seen.size} removed)`);
     } else {
       console.log(`Deploying ${commands.length} global commands...`);
       console.log('  WARNING: The bot also registers guild commands on startup.');
