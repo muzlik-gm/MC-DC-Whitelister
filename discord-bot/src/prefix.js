@@ -296,12 +296,14 @@ function createContext(message, commandName, options) {
     channel: message.channel,
 
     reply: async (data) => {
+      const payload = {};
       if (data.embeds && data.embeds.length > 0) {
-        const msg = await message.reply({ embeds: data.embeds });
-        ctx._replyMsg = msg;
-        return msg;
+        payload.embeds = data.embeds;
+      } else {
+        payload.content = typeof data === 'string' ? data : (data.content || '');
       }
-      const msg = await message.reply(data);
+      if (data.components) payload.components = data.components;
+      const msg = await message.reply(payload);
       ctx._replyMsg = msg;
       return msg;
     },
