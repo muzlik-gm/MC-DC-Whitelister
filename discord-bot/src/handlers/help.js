@@ -98,6 +98,15 @@ const CATEGORIES = {
   },
 };
 
+const CATEGORY_LABELS = {
+  player: 'Player Commands',
+  setup: 'Server Setup',
+  management: 'Server Management',
+  moderation: 'Staff Moderation',
+  community: 'Community Features',
+  info: 'Information',
+};
+
 function buildMenu(selected) {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -105,10 +114,9 @@ function buildMenu(selected) {
       .setPlaceholder('Choose a category...')
       .addOptions(
         Object.entries(CATEGORIES).map(([key, cat]) => ({
-          label: cat.title.replace(/^.\s/, ''),
+          label: CATEGORY_LABELS[key],
           value: key,
           description: `${cat.commands.length} commands`,
-          emoji: cat.title.charAt(0),
           default: key === selected,
         }))
       )
