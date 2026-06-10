@@ -97,14 +97,11 @@ public class ConfigManager {
 
         // Validate API key
         if (this.apiKey.isEmpty()) {
-            WhitelistBotPlugin.getInstance().getLogger().severe(
-                "CRITICAL: Minecraft API key is not configured! " +
-                "Set MINECRAFT_API_KEY environment variable or configure in config.yml"
+            WhitelistBotPlugin.getInstance().getLogger().warning(
+                "Minecraft API key is not configured. " +
+                "Run /wlb pair in-game or set api-key in config.yml."
             );
-            throw new RuntimeException("Minecraft API key is required for the plugin to function");
-        }
-        
-        if (this.apiKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY")) {
+        } else if (this.apiKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY")) {
             WhitelistBotPlugin.getInstance().getLogger().warning(
                 "The api-key in config.yml is still the default! Change it immediately."
             );
