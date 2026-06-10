@@ -17,6 +17,10 @@ module.exports = {
             .setRequired(true)
             .setMaxLength(100))
         .addStringOption(opt =>
+          opt.setName('starts_at')
+            .setDescription('When the event starts (e.g. "2025-12-31 20:00 UTC")')
+            .setRequired(true))
+        .addStringOption(opt =>
           opt.setName('description')
             .setDescription('Event description')
             .setRequired(false)
@@ -35,11 +39,7 @@ module.exports = {
             .setDescription('Maximum number of participants')
             .setRequired(false)
             .setMinValue(1)
-            .setMaxValue(1000))
-        .addStringOption(opt =>
-          opt.setName('starts_at')
-            .setDescription('When the event starts (e.g. "2025-12-31 20:00 UTC")')
-            .setRequired(true)))
+            .setMaxValue(1000)))
     .addSubcommand(sub =>
       sub.setName('list')
         .setDescription('List upcoming events'))
@@ -71,8 +71,8 @@ module.exports = {
 
   async execute(interaction) {
     const ctx = {
-      reply: (data) => interaction.reply({ ...data, ephemeral: true }),
-      deferReply: () => interaction.deferReply({ ephemeral: true }),
+      reply: (data) => interaction.reply({ ...data, flags: 64 }),
+      deferReply: () => interaction.deferReply({ flags: 64 }),
       editReply: (data) => interaction.editReply(data),
       options: new Map(),
       userId: interaction.user.id,

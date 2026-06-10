@@ -40,7 +40,7 @@ async function handleSetup(ctx) {
 
   embed.addFields({ name: 'Managing Questions', value: 'Use `/applications questions add <question>` to add\nUse `/applications questions remove <id>` to remove\nPlayers apply with `/applications apply <username>`', inline: false });
 
-  return ctx.reply({ embeds: [embed], ephemeral: true });
+  return ctx.reply({ embeds: [embed], flags: 64 });
 }
 
 async function handleApply(ctx) {

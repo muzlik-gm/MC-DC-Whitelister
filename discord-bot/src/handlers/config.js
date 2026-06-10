@@ -19,7 +19,7 @@ async function handleCommand(ctx) {
   if (!guildCfg) {
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0xe67e22).setDescription('Server not paired yet. Use `>setup` or `/setup` first.')],
-      ephemeral: true
+      flags: 64
     });
   }
 

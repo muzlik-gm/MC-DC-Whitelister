@@ -230,6 +230,17 @@ function getDb() {
     )
   `);
 
+  // Migrate guild_settings — add columns that may not exist on older databases
+  const migrateColumns = [
+    'ALTER TABLE guild_settings ADD COLUMN log_milestones INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE guild_settings ADD COLUMN status_online_channel_id TEXT',
+    'ALTER TABLE guild_settings ADD COLUMN status_player_channel_id TEXT',
+    'ALTER TABLE guild_settings ADD COLUMN nickname_format TEXT NOT NULL DEFAULT \'{username}\'',
+  ];
+  for (const sql of migrateColumns) {
+    try { _db.exec(sql); } catch (e) { /* column already exists */ }
+  }
+
   return _db;
 }
 

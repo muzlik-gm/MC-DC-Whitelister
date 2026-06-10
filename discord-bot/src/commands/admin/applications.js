@@ -70,8 +70,8 @@ module.exports = {
     const group = interaction.options.getSubcommandGroup();
 
     const ctx = {
-      reply: (data) => interaction.reply({ ...data, ephemeral: true }),
-      deferReply: (opts) => interaction.deferReply({ ...opts, ephemeral: true }),
+      reply: (data) => interaction.reply({ ...data, flags: 64 }),
+      deferReply: (opts) => interaction.deferReply({ ...opts, flags: 64 }),
       editReply: (data) => interaction.editReply(data),
       options: new Map(),
       userId: interaction.user.id,
@@ -105,7 +105,7 @@ module.exports = {
       if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({
           embeds: [new (require('discord.js').EmbedBuilder)().setColor(0xe74c3c).setDescription('You need Administrator permission.')],
-          ephemeral: true
+          flags: 64
         });
       }
     }

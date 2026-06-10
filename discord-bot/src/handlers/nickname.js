@@ -101,7 +101,7 @@ async function handleStatus(ctx) {
       { name: 'Placeholders', value: '`{username}` — Minecraft username\n`{group}` — MC group from role mapping\n`{rank}` — Rank (not yet implemented)', inline: false }
     );
 
-  return ctx.reply({ embeds: [embed], ephemeral: true });
+  return ctx.reply({ embeds: [embed], flags: 64 });
 }
 
 module.exports = { handleSync, handleFormat, handleStatus, buildNickname };

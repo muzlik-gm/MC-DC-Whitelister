@@ -57,7 +57,7 @@ async function handleStatus(ctx) {
       { name: 'Player Channel', value: s?.status_player_channel_id ? `<#${s.status_player_channel_id}>` : 'Not set', inline: true }
     );
 
-  return ctx.reply({ embeds: [embed], ephemeral: true });
+  return ctx.reply({ embeds: [embed], flags: 64 });
 }
 
 async function updateStatusChannels(client) {

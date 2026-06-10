@@ -28,8 +28,8 @@ module.exports = {
 
   async execute(interaction) {
     const ctx = {
-      reply: (data) => interaction.reply({ ...data, ephemeral: true }),
-      deferReply: (opts) => interaction.deferReply({ ...opts, ephemeral: true }),
+      reply: (data) => interaction.reply({ ...data, flags: 64 }),
+      deferReply: (opts) => interaction.deferReply({ ...opts, flags: 64 }),
       editReply: (data) => interaction.editReply(data),
       options: new Map(),
       userId: interaction.user.id,

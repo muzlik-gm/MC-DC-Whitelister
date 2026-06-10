@@ -281,7 +281,7 @@ client.on('interactionCreate', async interaction => {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({
             embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('An error occurred.')],
-            ephemeral: true
+            flags: 64
           }).catch(() => {});
         }
       }
@@ -295,14 +295,14 @@ client.on('interactionCreate', async interaction => {
   if (!cmd) {
     return interaction.reply({
       embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('Unknown command.')],
-      ephemeral: true
+      flags: 64
     });
   }
 
   if (!interaction.inGuild()) {
     return interaction.reply({
       embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('This command can only be used in a server.')],
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -318,7 +318,7 @@ client.on('interactionCreate', async interaction => {
           .setTitle('Unexpected Error')
           .setDescription('An unexpected error occurred. Please try again.')
       ],
-      ephemeral: true
+      flags: 64
     };
 
     if (interaction.replied || interaction.deferred) {

@@ -30,7 +30,7 @@ async function loggingHandler(ctx) {
     logAction(ctx.guildId, 'logging_channel', ctx.userId, null, `Channel: ${channel.id}`);
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0x2ecc71).setDescription(`Activity logs will be posted to ${channel}.`)],
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -52,7 +52,7 @@ async function loggingHandler(ctx) {
     logAction(ctx.guildId, 'logging_types', ctx.userId, null, JSON.stringify(types));
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0x2ecc71).setDescription('Log types updated.')],
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -61,7 +61,7 @@ async function loggingHandler(ctx) {
     logAction(ctx.guildId, 'logging_clear', ctx.userId, null, null);
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0xe67e22).setDescription('Log channel cleared. Activity will no longer be posted.')],
-      ephemeral: true
+      flags: 64
     });
   }
 
@@ -79,7 +79,7 @@ async function loggingHandler(ctx) {
       { name: 'Milestones', value: s?.log_milestones ? '✅' : '❌', inline: true },
     );
 
-  return ctx.reply({ embeds: [embed], ephemeral: true });
+  return ctx.reply({ embeds: [embed], flags: 64 });
 }
 
 module.exports = loggingHandler;
