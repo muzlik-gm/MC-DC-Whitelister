@@ -300,6 +300,19 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+    if (interaction.customId && interaction.customId.startsWith('help_')) {
+      try {
+        const { buildEmbed, buildButtons } = require('./handlers/help');
+        const selected = interaction.customId.replace('help_', '');
+        const embed = buildEmbed(selected);
+        const components = buildButtons(selected);
+        await interaction.update({ embeds: [embed], components });
+      } catch (err) {
+        logger.error('Help', 'Button interaction error', err);
+      }
+      return;
+    }
+
     return;
   }
 

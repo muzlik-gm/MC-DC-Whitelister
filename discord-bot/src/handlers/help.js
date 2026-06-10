@@ -1,8 +1,8 @@
-const { EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
 const CATEGORIES = {
   player: {
-    title: '👤 Player Commands',
+    title: 'Player Commands',
     color: 0x2ecc71,
     desc: 'Commands available to everyone:',
     commands: [
@@ -17,7 +17,7 @@ const CATEGORIES = {
     ],
   },
   setup: {
-    title: '🛠️ Server Setup',
+    title: 'Server Setup',
     color: 0xe67e22,
     desc: 'Configure your Minecraft server connection:',
     commands: [
@@ -32,7 +32,7 @@ const CATEGORIES = {
     ],
   },
   management: {
-    title: '⚙️ Server Management',
+    title: 'Server Management',
     color: 0x3498db,
     desc: 'Monitor and manage your server:',
     commands: [
@@ -50,7 +50,7 @@ const CATEGORIES = {
     ],
   },
   moderation: {
-    title: '🔨 Staff Moderation',
+    title: 'Staff Moderation',
     color: 0xe74c3c,
     desc: 'Cross-platform moderation tools:',
     commands: [
@@ -67,7 +67,7 @@ const CATEGORIES = {
     ],
   },
   community: {
-    title: '🎮 Community Features',
+    title: 'Community Features',
     color: 0x9b59b6,
     desc: 'Grow and engage your community:',
     commands: [
@@ -87,7 +87,7 @@ const CATEGORIES = {
     ],
   },
   info: {
-    title: 'ℹ️ Info Commands',
+    title: 'Information',
     color: 0x95a5a6,
     desc: 'Helpful information:',
     commands: [
@@ -98,51 +98,58 @@ const CATEGORIES = {
   },
 };
 
+const CATEGORY_ORDER = ['player', 'setup', 'management', 'moderation', 'community', 'info'];
 const CATEGORY_LABELS = {
-  player: 'Player Commands',
-  setup: 'Server Setup',
-  management: 'Server Management',
-  moderation: 'Staff Moderation',
-  community: 'Community Features',
-  info: 'Information',
+  player: 'Player',
+  setup: 'Setup',
+  management: 'Management',
+  moderation: 'Moderation',
+  community: 'Community',
+  info: 'Info',
 };
 
-function buildMenu(selected) {
-  return new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId('help_category')
-      .setPlaceholder('Choose a category...')
-      .addOptions(
-        Object.entries(CATEGORIES).map(([key, cat]) => ({
-          label: CATEGORY_LABELS[key],
-          value: key,
-          description: `${cat.commands.length} commands`,
-          default: key === selected,
-        }))
-      )
-  );
+function buildButtons(selected) {
+  const row1 = new ActionRowBuilder();
+  const row2 = new ActionRowBuilder();
+
+  const allKeys = CATEGORY_ORDER;
+
+  for (let i = 0; i < allKeys.length; i++) {
+    const key = allKeys[i];
+    const btn = new ButtonBuilder()
+      .setCustomId(`help_${key}`)
+      .setLabel(CATEGORY_LABELS[key])
+      .setStyle(key === selected ? ButtonStyle.Primary : ButtonStyle.Secondary);
+
+    if (i < 5) {
+      row1.addComponents(btn);
+    } else {
+      row2.addComponents(btn);
+    }
+  }
+
+  return row2.components.length > 0 ? [row1, row2] : [row1];
 }
 
 function buildEmbed(category) {
   const cat = CATEGORIES[category];
   if (!cat) {
-    const embed = new EmbedBuilder()
+    return new EmbedBuilder()
       .setColor(0x3498db)
-      .setTitle('🔐 WhitelistBot Commands')
+      .setTitle('WhitelistBot Commands')
       .setDescription(
-        'Browse all available commands using the menu below.\n\n' +
+        'Browse all available commands using the buttons below.\n\n' +
         'All commands work as both **slash commands** (`/`) and **prefix commands** (`>`).'
       )
       .addFields(
-        { name: '👤 Player', value: '8 commands', inline: true },
-        { name: '🛠️ Setup', value: '8 commands', inline: true },
-        { name: '⚙️ Management', value: '11 commands', inline: true },
-        { name: '🔨 Moderation', value: '10 commands', inline: true },
-        { name: '🎮 Community', value: '13 commands', inline: true },
-        { name: 'ℹ️ Info', value: '3 commands', inline: true },
+        { name: 'Player', value: '8 commands', inline: true },
+        { name: 'Setup', value: '8 commands', inline: true },
+        { name: 'Management', value: '11 commands', inline: true },
+        { name: 'Moderation', value: '10 commands', inline: true },
+        { name: 'Community', value: '13 commands', inline: true },
+        { name: 'Info', value: '3 commands', inline: true },
       )
-      .setFooter({ text: 'Select a category from the menu below' });
-    return embed;
+      .setFooter({ text: 'Click a button to view commands' });
   }
 
   const lines = cat.commands.map(([cmd, desc]) => `${cmd} — ${desc}`).join('\n');
@@ -156,8 +163,8 @@ function buildEmbed(category) {
 async function help(ctx) {
   const category = ctx.options.get('category');
   const embed = buildEmbed(category);
-  const menu = buildMenu(category || null);
-  return ctx.reply({ embeds: [embed], components: [menu] });
+  const components = buildButtons(category || null);
+  return ctx.reply({ embeds: [embed], components });
 }
 
-module.exports = { help, buildEmbed, buildMenu, CATEGORIES };
+module.exports = { help, buildEmbed, buildButtons, CATEGORIES };
