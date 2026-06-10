@@ -56,13 +56,6 @@ jobs:
             # Install dependencies
             npm --prefix discord-bot install
             
-            # Build the plugin (if it's a Java project)
-            if [ -d "minecraft-plugin" ]; then
-              cd minecraft-plugin
-              mvn clean package -DskipTests
-              cd ..
-            fi
-            
             # Stop the bot before deployment
             sudo systemctl stop whitelist-bot || pkill -f "node src/index.js" || true
             
@@ -88,16 +81,9 @@ jobs:
             # Health checks
             echo "Performing health checks..."
             
-            # Check Discord API connectivity
-            if ! node discord-bot/src/deploy.js 2>&1 | grep -q "Deploy complete"; then
+            # Check Discord commands deployed
+            node discord-bot/src/deploy.js 2>&1 | grep -q "Deploy complete" || {
               echo "ERROR: Discord commands deployment failed. Triggering rollback..."
-              bash rollback.sh
-              exit 1
-            fi
-            
-            # Check plugin health
-            curl -s --max-time 10 http://localhost:25252/api/status > /dev/null || {
-              echo "ERROR: Plugin health check failed. Triggering rollback..."
               bash rollback.sh
               exit 1
             }
