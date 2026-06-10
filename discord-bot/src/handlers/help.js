@@ -4,6 +4,7 @@ const CATEGORIES = {
   player: {
     title: 'Player Commands',
     color: 0x2ecc71,
+    emoji: '\uD83C\uDFAE',
     desc: 'Commands available to everyone:',
     commands: [
       ['`/whitelist <username>`', 'Link your Minecraft account to Discord'],
@@ -19,6 +20,7 @@ const CATEGORIES = {
   setup: {
     title: 'Server Setup',
     color: 0xe67e22,
+    emoji: '\u2699\uFE0F',
     desc: 'Configure your Minecraft server connection:',
     commands: [
       ['`/setup`', 'Manually configure MC server details'],
@@ -34,6 +36,7 @@ const CATEGORIES = {
   management: {
     title: 'Server Management',
     color: 0x3498db,
+    emoji: '\uD83D\uDCCA',
     desc: 'Monitor and manage your server:',
     commands: [
       ['`/console <command>`', 'Run any MC server command remotely'],
@@ -52,6 +55,7 @@ const CATEGORIES = {
   moderation: {
     title: 'Staff Moderation',
     color: 0xe74c3c,
+    emoji: '\uD83D\uDD28',
     desc: 'Cross-platform moderation tools:',
     commands: [
       ['`/ban <username> [reason]`', 'Ban a player from MC server'],
@@ -69,6 +73,7 @@ const CATEGORIES = {
   community: {
     title: 'Community Features',
     color: 0x9b59b6,
+    emoji: '\uD83C\uDF10',
     desc: 'Grow and engage your community:',
     commands: [
       ['`/roles set @role <group>`', 'Map Discord role to LuckPerms group'],
@@ -89,6 +94,7 @@ const CATEGORIES = {
   info: {
     title: 'Information',
     color: 0x95a5a6,
+    emoji: '\u2139\uFE0F',
     desc: 'Helpful information:',
     commands: [
       ['`/help [category]`', 'This command — view help by category'],
@@ -112,13 +118,12 @@ function buildButtons(selected) {
   const row1 = new ActionRowBuilder();
   const row2 = new ActionRowBuilder();
 
-  const allKeys = CATEGORY_ORDER;
-
-  for (let i = 0; i < allKeys.length; i++) {
-    const key = allKeys[i];
+  for (let i = 0; i < CATEGORY_ORDER.length; i++) {
+    const key = CATEGORY_ORDER[i];
     const btn = new ButtonBuilder()
       .setCustomId(`help_${key}`)
       .setLabel(CATEGORY_LABELS[key])
+      .setEmoji(CATEGORIES[key].emoji)
       .setStyle(key === selected ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
     if (i < 5) {
@@ -142,12 +147,12 @@ function buildEmbed(category) {
         'All commands work as both **slash commands** (`/`) and **prefix commands** (`>`).'
       )
       .addFields(
-        { name: 'Player', value: '8 commands', inline: true },
-        { name: 'Setup', value: '8 commands', inline: true },
-        { name: 'Management', value: '11 commands', inline: true },
-        { name: 'Moderation', value: '10 commands', inline: true },
-        { name: 'Community', value: '13 commands', inline: true },
-        { name: 'Info', value: '3 commands', inline: true },
+        { name: '\uD83C\uDFAE Player', value: '8 commands', inline: true },
+        { name: '\u2699\uFE0F Setup', value: '8 commands', inline: true },
+        { name: '\uD83D\uDCCA Management', value: '11 commands', inline: true },
+        { name: '\uD83D\uDD28 Moderation', value: '10 commands', inline: true },
+        { name: '\uD83C\uDF10 Community', value: '13 commands', inline: true },
+        { name: '\u2139\uFE0F Info', value: '3 commands', inline: true },
       )
       .setFooter({ text: 'Click a button to view commands' });
   }
@@ -155,7 +160,7 @@ function buildEmbed(category) {
   const lines = cat.commands.map(([cmd, desc]) => `${cmd} — ${desc}`).join('\n');
   return new EmbedBuilder()
     .setColor(cat.color)
-    .setTitle(cat.title)
+    .setTitle(`${cat.emoji} ${cat.title}`)
     .setDescription(cat.desc)
     .addFields({ name: 'Commands', value: lines, inline: false });
 }
