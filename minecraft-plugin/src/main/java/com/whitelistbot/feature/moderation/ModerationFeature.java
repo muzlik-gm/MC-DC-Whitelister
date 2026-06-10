@@ -9,19 +9,31 @@ import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.feature.Feature;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 
-public class ModerationFeature implements Feature {
+public class ModerationFeature implements Feature, Listener {
 
     private final Gson gson = new Gson();
+    private final Map<UUID, MuteEntry> mutedPlayers = new HashMap<>();
     private WhitelistBotPlugin plugin;
     private ConfigManager config;
+
+    private static class MuteEntry {
+        final long expiresAt;
+        final String reason;
+
+        MuteEntry(long expiresAt, String reason) {
+            this.expiresAt = expiresAt;
+            this.reason = reason;
+        }
+    }
 
     @Override
     public String getName() {
@@ -37,12 +49,14 @@ public class ModerationFeature implements Feature {
     public void onEnable(WhitelistBotPlugin plugin) {
         this.plugin = plugin;
         this.config = plugin.getConfigManager();
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     @Override
     public void onDisable() {
         this.plugin = null;
         this.config = null;
+        this.mutedPlayers.clear();
     }
 
     @Override
@@ -50,8 +64,23 @@ public class ModerationFeature implements Feature {
         return Arrays.asList(
             new BanEndpoint(),
             new KickEndpoint(),
-            new WarnEndpoint()
+            new WarnEndpoint(),
+            new MuteEndpoint(),
+            new UnmuteEndpoint()
         );
+    }
+
+    @EventHandler
+    public void onPlayerChat(AsyncPlayerChatEvent event) {
+        MuteEntry entry = mutedPlayers.get(event.getPlayer().getUniqueId());
+        if (entry != null) {
+            if (System.currentTimeMillis() < entry.expiresAt) {
+                event.setCancelled(true);
+                event.getPlayer().sendMessage("§cYou are muted. Reason: " + entry.reason);
+            } else {
+                mutedPlayers.remove(event.getPlayer().getUniqueId());
+            }
+        }
     }
 
     private boolean authenticate(HttpExchange exchange) {
@@ -128,7 +157,7 @@ public class ModerationFeature implements Feature {
                         online.kickPlayer("Banned: " + reason);
                     }
 
-                    plugin.getLogger().info("Banned: " + player + " — " + reason);
+                    plugin.getLogger().info("Banned: " + player + " \u2014 " + reason);
 
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
@@ -178,7 +207,7 @@ public class ModerationFeature implements Feature {
                     }
 
                     online.kickPlayer("Kicked: " + reason);
-                    plugin.getLogger().info("Kicked: " + player + " — " + reason);
+                    plugin.getLogger().info("Kicked: " + player + " \u2014 " + reason);
 
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
@@ -226,7 +255,7 @@ public class ModerationFeature implements Feature {
                         online.sendMessage("§e[Warning] §f" + reason);
                     }
 
-                    plugin.getLogger().info("Warned: " + player + " — " + reason);
+                    plugin.getLogger().info("Warned: " + player + " \u2014 " + reason);
 
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
@@ -234,6 +263,106 @@ public class ModerationFeature implements Feature {
                     sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/warn", e);
+                    sendError(exchange, 500, "Internal server error");
+                }
+            };
+        }
+    }
+
+    private class MuteEndpoint implements Endpoint {
+        @Override
+        public String getPath() {
+            return "/api/moderation/mute";
+        }
+
+        @Override
+        public HttpHandler getHandler() {
+            return exchange -> {
+                try {
+                    if (!authenticate(exchange)) {
+                        sendError(exchange, 401, "Unauthorized");
+                        return;
+                    }
+                    if (!"POST".equals(exchange.getRequestMethod())) {
+                        sendError(exchange, 405, "Method not allowed");
+                        return;
+                    }
+
+                    String body = readBody(exchange);
+                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    if (req == null || !req.has("player")) {
+                        sendError(exchange, 400, "Missing 'player' field");
+                        return;
+                    }
+
+                    String player = req.get("player").getAsString();
+                    int duration = req.has("duration") ? req.get("duration").getAsInt() : 30;
+                    String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
+
+                    Player online = Bukkit.getPlayerExact(player);
+                    if (online != null) {
+                        mutedPlayers.put(online.getUniqueId(), new MuteEntry(System.currentTimeMillis() + (duration * 60 * 1000L), reason));
+                        online.sendMessage("§cYou have been muted for " + duration + " minute(s). Reason: " + reason);
+                    } else {
+                        Bukkit.getOfflinePlayer(player).getUniqueId();
+                    }
+
+                    plugin.getLogger().info("Muted: " + player + " \u2014 " + duration + "m \u2014 " + reason);
+
+                    JsonObject res = new JsonObject();
+                    res.addProperty("success", true);
+                    res.addProperty("message", player + " has been muted for " + duration + " minute(s)");
+                    sendJson(exchange, 200, gson.toJson(res));
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/mute", e);
+                    sendError(exchange, 500, "Internal server error");
+                }
+            };
+        }
+    }
+
+    private class UnmuteEndpoint implements Endpoint {
+        @Override
+        public String getPath() {
+            return "/api/moderation/unmute";
+        }
+
+        @Override
+        public HttpHandler getHandler() {
+            return exchange -> {
+                try {
+                    if (!authenticate(exchange)) {
+                        sendError(exchange, 401, "Unauthorized");
+                        return;
+                    }
+                    if (!"POST".equals(exchange.getRequestMethod())) {
+                        sendError(exchange, 405, "Method not allowed");
+                        return;
+                    }
+
+                    String body = readBody(exchange);
+                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    if (req == null || !req.has("player")) {
+                        sendError(exchange, 400, "Missing 'player' field");
+                        return;
+                    }
+
+                    String player = req.get("player").getAsString();
+
+                    Player online = Bukkit.getPlayerExact(player);
+                    if (online != null) {
+                        mutedPlayers.remove(online.getUniqueId());
+                        online.sendMessage("§aYou have been unmuted.");
+                    }
+
+                    plugin.getLogger().info("Unmuted: " + player);
+
+                    JsonObject res = new JsonObject();
+                    res.addProperty("success", true);
+                    res.addProperty("message", player + " has been unmuted");
+                    sendJson(exchange, 200, gson.toJson(res));
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/unmute", e);
                     sendError(exchange, 500, "Internal server error");
                 }
             };

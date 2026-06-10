@@ -152,6 +152,22 @@ class MinecraftApi {
   async getOnlinePlayers() {
     return this._get('/api/community/online');
   }
+
+  async getBalance(player) {
+    return this._get(`/api/economy/balance?player=${encodeURIComponent(player)}`);
+  }
+
+  async giveMoney(player, amount, reason) {
+    return this._request('/api/economy/give', { player, amount, reason: reason || '' });
+  }
+
+  async mutePlayer(username, duration, reason) {
+    return this._request('/api/moderation/mute', { player: username, duration, reason });
+  }
+
+  async unmutePlayer(username) {
+    return this._request('/api/moderation/unmute', { player: username });
+  }
 }
 
 module.exports = MinecraftApi;

@@ -3,6 +3,7 @@ const moderationDb = require('../database/moderation');
 const whitelistDb = require('../database/whitelist');
 const MinecraftApi = require('../services/MinecraftApi');
 const { isValidMinecraftUsername } = require('../utils/validation');
+const { logAction } = require('../database/audit');
 
 async function moderationHandler(ctx) {
   if (!ctx.guildConfig) {
@@ -49,6 +50,8 @@ async function handleBan(ctx) {
     });
   }
 
+  logAction(ctx.guildId, 'ban', ctx.userId, username, reason);
+
   const embed = new EmbedBuilder()
     .setColor(0xe74c3c)
     .setTitle('Player Banned')
@@ -82,6 +85,8 @@ async function handleKick(ctx) {
       embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle('Kick Failed').setDescription(res.error || 'Could not kick player.')]
     });
   }
+
+  logAction(ctx.guildId, 'kick', ctx.userId, username, reason);
 
   const embed = new EmbedBuilder()
     .setColor(0xe67e22)
@@ -139,6 +144,8 @@ async function handleWarn(ctx) {
     });
   }
 
+  logAction(ctx.guildId, 'warn', ctx.userId, username, reason);
+
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle('Player Warned')
@@ -190,6 +197,8 @@ async function handleDelwarn(ctx) {
       embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription(`Warning ID \`${id}\` not found.`)]
     });
   }
+
+  logAction(ctx.guildId, 'delwarn', ctx.userId, null, `Warning ID: ${id}`);
 
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)

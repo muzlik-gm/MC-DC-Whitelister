@@ -49,7 +49,11 @@ function getDb() {
       log_leaves      INTEGER NOT NULL DEFAULT 1,
       log_deaths      INTEGER NOT NULL DEFAULT 0,
       log_advancements INTEGER NOT NULL DEFAULT 1,
-      status_channel_id TEXT
+      log_milestones  INTEGER NOT NULL DEFAULT 1,
+      status_channel_id TEXT,
+      status_online_channel_id TEXT,
+      status_player_channel_id TEXT,
+      nickname_format TEXT NOT NULL DEFAULT '{username}'
     )
   `);
 
@@ -120,6 +124,109 @@ function getDb() {
       auto_role_id TEXT,
       tutorial_channel_id TEXT,
       enabled INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      player_uuid TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      author_id TEXT NOT NULL,
+      author_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      actor_id TEXT NOT NULL,
+      target TEXT,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS temp_whitelist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      discord_id TEXT,
+      minecraft_username TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      discord_id TEXT NOT NULL,
+      minecraft_username TEXT NOT NULL,
+      answers TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      reviewed_by TEXT,
+      review_note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      reviewed_at TEXT
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS application_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      question TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS reputation (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      from_discord_id TEXT NOT NULL,
+      to_discord_id TEXT NOT NULL,
+      reason TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(guild_id, from_discord_id, to_discord_id)
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS reputation_roles (
+      guild_id TEXT NOT NULL,
+      min_reputation INTEGER NOT NULL,
+      role_id TEXT NOT NULL,
+      PRIMARY KEY (guild_id, min_reputation)
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS cleanup_config (
+      guild_id TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      inactive_days INTEGER NOT NULL DEFAULT 30,
+      unverified_days INTEGER NOT NULL DEFAULT 7
+    )
+  `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS donations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      discord_id TEXT,
+      minecraft_username TEXT,
+      amount REAL NOT NULL,
+      message TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
 

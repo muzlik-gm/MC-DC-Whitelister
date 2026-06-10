@@ -85,6 +85,47 @@ client.once('clientReady', async () => {
   }
   logger.info('Guilds', `Registered commands for ${guilds.size} guild(s)`);
 
+  // Temp whitelist cleanup every 5 minutes
+  setInterval(async () => {
+    const tempDb = require('./database/tempwhitelist');
+    const expired = tempDb.getExpired();
+    for (const entry of expired) {
+      try {
+        const guildCfg = require('./database/guilds').getConfig(entry.guild_id);
+        if (guildCfg) {
+          const api = new MinecraftApi(guildCfg);
+          await api.removeFromWhitelist(entry.minecraft_username);
+        }
+        tempDb.removeExpired(entry.id);
+      } catch (err) {
+        logger.error('TempWhitelist', `Cleanup failed for ${entry.minecraft_username}`, err);
+      }
+    }
+  }, 300000);
+
+  // Daily cleanup of inactive whitelist entries
+  const CLEANUP_INTERVAL = 86400000;
+  setInterval(async () => {
+    const cleanupDb = require('./database/cleanup');
+    const configs = cleanupDb.getAllConfigs();
+    for (const config of configs) {
+      try {
+        const guildCfg = require('./database/guilds').getConfig(config.guild_id);
+        if (!guildCfg) continue;
+        const api = new MinecraftApi(guildCfg);
+        const entries = cleanupDb.getInactiveEntries(config.guild_id, config.inactive_days);
+        for (const entry of entries) {
+          const result = await api.removeFromWhitelist(entry.minecraft_username);
+          if (result.ok) {
+            require('./database/whitelist').unlinkAccount(config.guild_id, entry.discord_id);
+          }
+        }
+      } catch (err) {
+        logger.error('Cleanup', `Daily cleanup failed for guild ${config.guild_id}`, err);
+      }
+    }
+  }, CLEANUP_INTERVAL);
+
   // Start activity polling loop
   const lastPoll = new Map();
   setInterval(async () => {
@@ -108,33 +149,78 @@ client.once('clientReady', async () => {
         const type = evt.type;
         const player = evt.player;
         const detail = evt.detail || '';
+        const hours = evt.hours;
 
         let color = 0x2ecc71;
         let title = '';
         let desc = '';
 
-        if (type === 'join') { color = 0x2ecc71; title = 'Player Joined'; desc = `**${player}** joined the server`; }
-        else if (type === 'first_join') { color = 0x3498db; title = 'First Join'; desc = `**${player}** joined for the first time!`; }
-        else if (type === 'leave') { color = 0xe67e22; title = 'Player Left'; desc = `**${player}** left the server`; }
-        else if (type === 'death') { color = 0xe74c3c; title = 'Player Died'; desc = detail || `**${player}** died`; }
-        else if (type === 'advancement') {
+        if (type === 'join') {
+          color = 0x2ecc71; title = 'Player Joined'; desc = `**${player}** joined the server`;
+          if (gc.log_joins) {
+            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
+            channel.send({ embeds: [embed] }).catch(() => {});
+          }
+          if (gc.nickname_format && gc.nickname_format !== '{username}') {
+            const whitelistDb = require('./database/whitelist');
+            const rolesDb = require('./database/roles');
+            const { buildNickname } = require('./handlers/nickname');
+            const entry = whitelistDb.getByMinecraftUsername(guildId, player);
+            if (entry) {
+              const member = guild.members.cache.get(entry.discord_id);
+              if (member) {
+                const memberRoles = member.roles.cache.map(r => r.id);
+                const mapping = rolesDb.getGroupForRoles(guildId, memberRoles);
+                const nickname = buildNickname(gc.nickname_format, player, mapping || '', '');
+                if (member.nickname !== nickname) {
+                  member.setNickname(nickname).catch(() => {});
+                }
+              }
+            }
+          }
+        } else if (type === 'first_join') {
+          color = 0x3498db; title = 'First Join'; desc = `**${player}** joined for the first time!`;
+          if (gc.log_joins) {
+            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
+            channel.send({ embeds: [embed] }).catch(() => {});
+          }
+        } else if (type === 'leave') {
+          color = 0xe67e22; title = 'Player Left'; desc = `**${player}** left the server`;
+          if (gc.log_leaves) {
+            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
+            channel.send({ embeds: [embed] }).catch(() => {});
+          }
+        } else if (type === 'death') {
+          color = 0xe74c3c; title = 'Player Died'; desc = detail || `**${player}** died`;
+          if (gc.log_deaths) {
+            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
+            channel.send({ embeds: [embed] }).catch(() => {});
+          }
+        } else if (type === 'advancement') {
           color = 0xf1c40f;
           title = 'Advancement';
           const name = detail.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
           desc = `**${player}** earned **${name}**`;
-        } else continue;
-
-        if ((type === 'join' && !gc.log_joins) ||
-            (type === 'leave' && !gc.log_leaves) ||
-            (type === 'death' && !gc.log_deaths) ||
-            (type === 'advancement' && !gc.log_advancements)) continue;
-
-        const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
-
-        channel.send({ embeds: [embed] }).catch(() => {});
+          if (gc.log_advancements) {
+            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
+            channel.send({ embeds: [embed] }).catch(() => {});
+          }
+        } else if (type === 'milestone') {
+          if (gc.log_milestones) {
+            color = 0x9b59b6; title = 'Playtime Milestone'; desc = `**${player}** reached **${hours}** hours of playtime!`;
+            const embed = new EmbedBuilder().setColor(color).setTitle(title).setDescription(desc);
+            channel.send({ embeds: [embed] }).catch(() => {});
+          }
+        }
       }
     }
   }, 15000);
+
+  // Status channel updater (every 60s)
+  setInterval(async () => {
+    const { updateStatusChannels } = require('./handlers/statuschannel');
+    await updateStatusChannels(client);
+  }, 60000);
 });
 
 client.on('guildCreate', async (guild) => {

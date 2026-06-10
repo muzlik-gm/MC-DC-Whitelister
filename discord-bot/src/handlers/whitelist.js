@@ -5,6 +5,7 @@ const rolesDb = require('../database/roles');
 const MinecraftApi = require('../services/MinecraftApi');
 const { isValidMinecraftUsername } = require('../utils/validation');
 const { EmbedBuilder } = require('discord.js');
+const { logAction } = require('../database/audit');
 
 const cooldowns = new Map();
 const COOLDOWN_MS = 10_000;
@@ -97,6 +98,8 @@ async function whitelist(ctx) {
     const syncApi = new MinecraftApi(ctx.guildConfig);
     await syncApi.syncRoles(ctx.userId, username, group);
   }
+
+  logAction(ctx.guildId, 'whitelist', ctx.userId, username, null);
 
   return ctx.editReply({
     embeds: [new EmbedBuilder().setColor(0x2ecc71).setTitle('✅ Whitelisted').setDescription(`You are now whitelisted as **${username}**`).setFooter({ text: 'One account per server. Use >unlink or /unlink to change it.' })]

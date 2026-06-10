@@ -18,10 +18,12 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 public class ActivityFeature implements Feature, Listener {
@@ -31,6 +33,11 @@ public class ActivityFeature implements Feature, Listener {
     private static final int MAX_EVENTS = 1000;
     private WhitelistBotPlugin plugin;
     private ConfigManager config;
+
+    private final Map<UUID, Long> sessionStart = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> totalPlaytime = new ConcurrentHashMap<>();
+    private final Set<UUID> milestoneSent = ConcurrentHashMap.newKeySet();
+    private final List<Integer> milestones = new ArrayList<>();
 
     @Override
     public String getName() {
@@ -47,6 +54,20 @@ public class ActivityFeature implements Feature, Listener {
         this.plugin = plugin;
         this.config = plugin.getConfigManager();
         Bukkit.getPluginManager().registerEvents(this, plugin);
+
+        List<Integer> cfgMilestones = plugin.getConfig().getIntegerList("milestones");
+        if (cfgMilestones.isEmpty()) {
+            cfgMilestones = Arrays.asList(1, 10, 50, 100, 500, 1000);
+        }
+        milestones.clear();
+        milestones.addAll(cfgMilestones);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                checkMilestones();
+            }
+        }.runTaskTimer(plugin, 1200L, 1200L);
     }
 
     @Override
@@ -55,6 +76,9 @@ public class ActivityFeature implements Feature, Listener {
         synchronized (eventLog) {
             eventLog.clear();
         }
+        sessionStart.clear();
+        totalPlaytime.clear();
+        milestoneSent.clear();
         this.plugin = null;
         this.config = null;
     }
@@ -65,11 +89,18 @@ public class ActivityFeature implements Feature, Listener {
     }
 
     private void logEvent(String type, String player, String detail) {
+        logEvent(type, player, detail, null);
+    }
+
+    private void logEvent(String type, String player, String detail, Integer hours) {
         JsonObject evt = new JsonObject();
         evt.addProperty("type", type);
         evt.addProperty("player", player);
         evt.addProperty("detail", detail != null ? detail : "");
         evt.addProperty("time", System.currentTimeMillis() / 1000);
+        if (hours != null) {
+            evt.addProperty("hours", hours);
+        }
         synchronized (eventLog) {
             eventLog.add(evt);
             while (eventLog.size() > MAX_EVENTS) {
@@ -81,13 +112,20 @@ public class ActivityFeature implements Feature, Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
+        sessionStart.put(p.getUniqueId(), System.currentTimeMillis());
         boolean firstJoin = !p.hasPlayedBefore();
         logEvent(firstJoin ? "first_join" : "join", p.getName(), null);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
+        Player p = event.getPlayer();
         logEvent("leave", event.getPlayer().getName(), null);
+        Long start = sessionStart.remove(p.getUniqueId());
+        if (start != null) {
+            long elapsed = System.currentTimeMillis() - start;
+            totalPlaytime.merge(p.getUniqueId(), elapsed, Long::sum);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -102,6 +140,25 @@ public class ActivityFeature implements Feature, Listener {
         String key = event.getAdvancement().getKey().getKey();
         if (key.startsWith("recipes/")) return;
         logEvent("advancement", event.getPlayer().getName(), key);
+    }
+
+    private void checkMilestones() {
+        long now = System.currentTimeMillis();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            UUID uuid = p.getUniqueId();
+            long total = totalPlaytime.getOrDefault(uuid, 0L);
+            Long start = sessionStart.get(uuid);
+            if (start != null) {
+                total += (now - start);
+            }
+            long hours = total / 3600000L;
+            for (int milestone : milestones) {
+                if (hours >= milestone && !milestoneSent.contains(uuid)) {
+                    milestoneSent.add(uuid);
+                    logEvent("milestone", p.getName(), null, (int) hours);
+                }
+            }
+        }
     }
 
     private boolean authenticate(HttpExchange exchange) {

@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const rolesDb = require('../database/roles');
 const whitelistDb = require('../database/whitelist');
 const MinecraftApi = require('../services/MinecraftApi');
+const { logAction } = require('../database/audit');
 
 async function rolesHandler(ctx) {
   if (!ctx.guildConfig) {
@@ -39,6 +40,8 @@ async function handleSet(ctx) {
 
   rolesDb.setMapping(ctx.guildId, role.id, group);
 
+  logAction(ctx.guildId, 'role_set', ctx.userId, role.name, `Group: ${group}`);
+
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)
     .setTitle('Role Mapping Set')
@@ -57,6 +60,8 @@ async function handleRemove(ctx) {
   }
 
   rolesDb.removeMapping(ctx.guildId, role.id);
+
+  logAction(ctx.guildId, 'role_remove', ctx.userId, role.name, null);
 
   const embed = new EmbedBuilder()
     .setColor(0xe67e22)
@@ -115,6 +120,8 @@ async function handleSync(ctx) {
       errors++;
     }
   }
+
+  logAction(ctx.guildId, 'role_sync', ctx.userId, null, `Synced: ${synced}, Errors: ${errors}`);
 
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)

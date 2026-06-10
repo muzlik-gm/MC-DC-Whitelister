@@ -27,9 +27,20 @@ const handlers = {
   referrals: require('./handlers/referrals'),
   events: require('./handlers/events'),
   onboarding: require('./handlers/onboarding'),
+  nickname: require('./handlers/nickname').handleSync,
+  statuschannel: require('./handlers/statuschannel').handleStatus,
+  mute: require('./handlers/mute'),
+  notes: require('./handlers/notes'),
+  audit: require('./handlers/audit'),
+  tempwhitelist: require('./handlers/tempwhitelist'),
+  applications: require('./handlers/applications'),
+  rep: require('./handlers/reputation'),
+  cleanup: require('./handlers/cleanup'),
+  economy: require('./handlers/economy'),
+  donations: require('./handlers/donations'),
 };
 
-const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config', 'console', 'logging', 'roles', 'ban', 'kick', 'warn', 'delwarn', 'events', 'onboarding']);
+const ADMIN_ONLY = new Set(['setup', 'pair', 'connect', 'unlinkserver', 'config', 'console', 'logging', 'roles', 'ban', 'kick', 'warn', 'delwarn', 'events', 'onboarding', 'nickname', 'statuschannel', 'mute', 'notes', 'audit', 'tempwhitelist', 'cleanup', 'economy', 'donations']);
 
 // command aliases
 const ALIASES = {
@@ -192,6 +203,85 @@ const COMMAND_META = {
       { name: 'role', named: true },
     ]
   },
+  nickname: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'format', named: true },
+    ]
+  },
+  statuschannel: {
+    options: [
+      { name: 'sub', named: false },
+    ]
+  },
+  mute: {
+    options: [
+      { name: 'username', named: false },
+      { name: 'duration', named: false },
+      { name: 'reason', named: true },
+      { name: 'remove', named: true },
+    ]
+  },
+  notes: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'username', named: false },
+      { name: 'content', named: true },
+      { name: 'id', named: true },
+    ]
+  },
+  audit: {
+    options: [
+      { name: 'limit', named: false },
+    ]
+  },
+  tempwhitelist: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'username', named: false },
+      { name: 'duration', named: true },
+    ]
+  },
+  applications: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'username', named: false },
+      { name: 'id', named: true },
+      { name: 'note', named: true },
+      { name: 'question', named: true },
+    ]
+  },
+  rep: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'user', named: false },
+      { name: 'reason', named: true },
+      { name: 'min_rep', named: true },
+      { name: 'role', named: true },
+    ]
+  },
+  cleanup: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'days', named: true },
+      { name: 'enabled', named: true },
+    ]
+  },
+  economy: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'username', named: false },
+      { name: 'amount', named: true },
+      { name: 'reason', named: true },
+    ]
+  },
+  donations: {
+    options: [
+      { name: 'sub', named: false },
+      { name: 'username', named: false },
+      { name: 'amount', named: true },
+    ]
+  },
 };
 
 function createContext(message, commandName, options) {
@@ -203,6 +293,7 @@ function createContext(message, commandName, options) {
     guildId: message.guild.id,
     member: message.member,
     guildConfig: guilds.getConfig(message.guild.id),
+    channel: message.channel,
 
     reply: async (data) => {
       if (data.embeds && data.embeds.length > 0) {

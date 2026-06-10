@@ -21,7 +21,8 @@ module.exports = {
         .addBooleanOption(opt => opt.setName('join').setDescription('Log player joins'))
         .addBooleanOption(opt => opt.setName('leave').setDescription('Log player leaves'))
         .addBooleanOption(opt => opt.setName('death').setDescription('Log player deaths'))
-        .addBooleanOption(opt => opt.setName('advancement').setDescription('Log advancements')))
+        .addBooleanOption(opt => opt.setName('advancement').setDescription('Log advancements'))
+        .addBooleanOption(opt => opt.setName('milestone').setDescription('Log playtime milestones')))
     .addSubcommand(sub =>
       sub.setName('clear')
         .setDescription('Stop logging and remove the log channel'))
@@ -56,6 +57,8 @@ module.exports = {
       if (leave !== null) ctx.options.set('leave', leave);
       if (death !== null) ctx.options.set('death', death);
       if (advancement !== null) ctx.options.set('advancement', advancement);
+      const milestone = interaction.options.getBoolean('milestone');
+      if (milestone !== null) ctx.options.set('milestone', milestone);
     }
 
     await handler(ctx);

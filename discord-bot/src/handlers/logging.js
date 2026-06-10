@@ -1,5 +1,6 @@
 const settings = require('../database/settings');
 const { EmbedBuilder, ChannelType } = require('discord.js');
+const { logAction } = require('../database/audit');
 
 async function loggingHandler(ctx) {
   if (!ctx.guildConfig) {
@@ -26,6 +27,7 @@ async function loggingHandler(ctx) {
     }
 
     settings.setLogChannel(ctx.guildId, channel.id);
+    logAction(ctx.guildId, 'logging_channel', ctx.userId, null, `Channel: ${channel.id}`);
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0x2ecc71).setDescription(`Activity logs will be posted to ${channel}.`)],
       ephemeral: true
@@ -37,14 +39,17 @@ async function loggingHandler(ctx) {
     const leave = ctx.options.get('leave') ?? null;
     const death = ctx.options.get('death') ?? null;
     const advancement = ctx.options.get('advancement') ?? null;
+    const milestone = ctx.options.get('milestone') ?? null;
 
     const types = {};
     if (join !== null) types.join = join ? 1 : 0;
     if (leave !== null) types.leave = leave ? 1 : 0;
     if (death !== null) types.death = death ? 1 : 0;
     if (advancement !== null) types.advancement = advancement ? 1 : 0;
+    if (milestone !== null) types.milestone = milestone ? 1 : 0;
 
     settings.setLogTypes(ctx.guildId, types);
+    logAction(ctx.guildId, 'logging_types', ctx.userId, null, JSON.stringify(types));
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0x2ecc71).setDescription('Log types updated.')],
       ephemeral: true
@@ -53,6 +58,7 @@ async function loggingHandler(ctx) {
 
   if (action === 'clear') {
     settings.setLogChannel(ctx.guildId, null);
+    logAction(ctx.guildId, 'logging_clear', ctx.userId, null, null);
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0xe67e22).setDescription('Log channel cleared. Activity will no longer be posted.')],
       ephemeral: true
@@ -70,6 +76,7 @@ async function loggingHandler(ctx) {
       { name: 'Leaves', value: s?.log_leaves ? '✅' : '❌', inline: true },
       { name: 'Deaths', value: s?.log_deaths ? '✅' : '❌', inline: true },
       { name: 'Advancements', value: s?.log_advancements ? '✅' : '❌', inline: true },
+      { name: 'Milestones', value: s?.log_milestones ? '✅' : '❌', inline: true },
     );
 
   return ctx.reply({ embeds: [embed], ephemeral: true });

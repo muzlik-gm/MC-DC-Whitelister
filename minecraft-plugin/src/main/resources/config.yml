@@ -25,6 +25,16 @@ anti-alt:
 # The Discord bot can map Discord roles to LuckPerms groups
 # Configure mappings using /roles in Discord
 
+# Milestone settings
+# Playtime milestones in hours that trigger milestone events
+milestones:
+  - 1
+  - 10
+  - 50
+  - 100
+  - 500
+  - 1000
+
 # Moderation settings
 # Ban, kick, and warn commands are available via Discord
 # Warnings are stored in the Discord bot's database

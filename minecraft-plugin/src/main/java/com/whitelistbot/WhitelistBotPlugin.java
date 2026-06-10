@@ -8,6 +8,7 @@ import com.whitelistbot.feature.FeatureManager;
 import com.whitelistbot.feature.activity.ActivityFeature;
 import com.whitelistbot.feature.community.CommunityFeature;
 import com.whitelistbot.feature.console.ConsoleFeature;
+import com.whitelistbot.feature.economy.EconomyFeature;
 import com.whitelistbot.feature.moderation.ModerationFeature;
 import com.whitelistbot.feature.pairing.PairingFeature;
 import com.whitelistbot.feature.rolesync.RoleSyncFeature;
@@ -53,6 +54,7 @@ public class WhitelistBotPlugin extends JavaPlugin {
         featureManager.register(new RoleSyncFeature());
         featureManager.register(new ModerationFeature());
         featureManager.register(new CommunityFeature());
+        featureManager.register(new EconomyFeature());
 
         apiServer = new ApiServer(this, configManager, featureManager);
 

@@ -1,5 +1,6 @@
 const MinecraftApi = require('../services/MinecraftApi');
 const { EmbedBuilder } = require('discord.js');
+const { logAction } = require('../database/audit');
 
 async function consoleExec(ctx) {
   const guildConfig = ctx.guildConfig;
@@ -37,6 +38,8 @@ async function consoleExec(ctx) {
       embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle('Remote Console').setDescription(res.error || 'Could not execute command.')]
     });
   }
+
+  logAction(ctx.guildId, 'console', ctx.userId, null, `/${command}`);
 
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)

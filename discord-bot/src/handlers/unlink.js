@@ -2,6 +2,7 @@ const whitelistDb = require('../database/whitelist');
 const guilds = require('../database/guilds');
 const MinecraftApi = require('../services/MinecraftApi');
 const { EmbedBuilder } = require('discord.js');
+const { logAction } = require('../database/audit');
 
 const COOLDOWN_MAP = {
   '10m': 600_000, '30m': 1_800_000, '1h': 3_600_000,
@@ -89,6 +90,8 @@ async function unlink(ctx) {
   if (mcOnline) {
     await api.removeFromWhitelist(link.minecraft_username);
   }
+
+  logAction(ctx.guildId, 'unlink', ctx.userId, link.minecraft_username, null);
 
   return ctx.editReply({
     embeds: [new EmbedBuilder().setColor(0x3498db).setTitle('🔗 Unlinked').setDescription(`**${link.minecraft_username}** has been removed from this server's whitelist.`)]
