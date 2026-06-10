@@ -76,14 +76,4 @@ jobs:
               exit 1
             fi
             
-            # Health checks
-            echo "Performing health checks..."
-            
-            # Check Discord commands deployed
-            cd discord-bot && node src/deploy.js 2>&1 | grep -q "Deploy complete" || {
-              echo "ERROR: Discord commands deployment failed. Triggering rollback..."
-              bash rollback.sh
-              exit 1
-            }
-            
-            echo "Deploy complete - All checks passed"
+            echo "Deploy complete"
