@@ -286,6 +286,20 @@ client.on('interactionCreate', async interaction => {
         }
       }
     }
+
+    if (interaction.customId === 'help_category') {
+      try {
+        const { buildEmbed, buildMenu } = require('./handlers/help');
+        const selected = interaction.values[0];
+        const embed = buildEmbed(selected);
+        const menu = buildMenu(selected);
+        await interaction.update({ embeds: [embed], components: [menu] });
+      } catch (err) {
+        logger.error('Help', 'Select menu error', err);
+      }
+      return;
+    }
+
     return;
   }
 

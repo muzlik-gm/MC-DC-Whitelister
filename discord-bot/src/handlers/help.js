@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
 
 const CATEGORIES = {
   player: {
@@ -98,28 +98,43 @@ const CATEGORIES = {
   },
 };
 
-const MAIN_OVERVIEW = `Use \`/help <category>\` to browse a specific section.
-
-**Categories:** Player · Setup · Management · Moderation · Community · Info
-
-All commands also work as prefix commands with \`>\` (e.g. \`>whitelist Steve\`).`;
+function buildMenu(selected) {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('help_category')
+      .setPlaceholder('Choose a category...')
+      .addOptions(
+        Object.entries(CATEGORIES).map(([key, cat]) => ({
+          label: cat.title.replace(/^.\s/, ''),
+          value: key,
+          description: `${cat.commands.length} commands`,
+          emoji: cat.title.charAt(0),
+          default: key === selected,
+        }))
+      )
+  );
+}
 
 function buildEmbed(category) {
   const cat = CATEGORIES[category];
   if (!cat) {
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
       .setColor(0x3498db)
       .setTitle('🔐 WhitelistBot Commands')
-      .setDescription(MAIN_OVERVIEW)
+      .setDescription(
+        'Browse all available commands using the menu below.\n\n' +
+        'All commands work as both **slash commands** (`/`) and **prefix commands** (`>`).'
+      )
       .addFields(
-        { name: '👤 Player', value: '5 commands', inline: true },
-        { name: '🛠️ Setup', value: '6 commands', inline: true },
-        { name: '⚙️ Management', value: '8 commands', inline: true },
-        { name: '🔨 Moderation', value: '8 commands', inline: true },
-        { name: '🎮 Community', value: '10 commands', inline: true },
+        { name: '👤 Player', value: '8 commands', inline: true },
+        { name: '🛠️ Setup', value: '8 commands', inline: true },
+        { name: '⚙️ Management', value: '11 commands', inline: true },
+        { name: '🔨 Moderation', value: '10 commands', inline: true },
+        { name: '🎮 Community', value: '13 commands', inline: true },
         { name: 'ℹ️ Info', value: '3 commands', inline: true },
       )
-      .setFooter({ text: 'Use /help <category> for details on each section' });
+      .setFooter({ text: 'Select a category from the menu below' });
+    return embed;
   }
 
   const lines = cat.commands.map(([cmd, desc]) => `${cmd} — ${desc}`).join('\n');
@@ -133,7 +148,8 @@ function buildEmbed(category) {
 async function help(ctx) {
   const category = ctx.options.get('category');
   const embed = buildEmbed(category);
-  return ctx.reply({ embeds: [embed] });
+  const menu = buildMenu(category || null);
+  return ctx.reply({ embeds: [embed], components: [menu] });
 }
 
-module.exports = help;
+module.exports = { help, buildEmbed, buildMenu, CATEGORIES };

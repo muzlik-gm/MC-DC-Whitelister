@@ -13,7 +13,7 @@ const handlers = {
   pair: require('./handlers/pair'),
   unlinkserver: require('./handlers/unlinkserver'),
   tutorial: require('./handlers/tutorial'),
-  help: require('./handlers/help'),
+  help: require('./handlers/help').help,
   about: require('./handlers/about'),
   config: require('./handlers/config').handleCommand,
   console: require('./handlers/console'),
