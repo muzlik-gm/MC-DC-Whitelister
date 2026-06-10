@@ -29,7 +29,6 @@ jobs:
             if [ -d "MC-DC-Whitelister" ]; then
               cd MC-DC-Whitelister
               git reset --hard
-              git clean -fd
             else
               git clone https://github.com/muzlik/MC-DC-Whitelister.git
               cd MC-DC-Whitelister
@@ -50,7 +49,6 @@ jobs:
             
             # Pull the latest changes
             git reset --hard
-            git clean -fd
             git pull origin main
             
             # Install dependencies

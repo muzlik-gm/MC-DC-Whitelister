@@ -9,6 +9,7 @@ target/
 # Secrets
 discord-bot/config.json
 discord-bot/.env
+.env
 
 # OS
 .DS_Store

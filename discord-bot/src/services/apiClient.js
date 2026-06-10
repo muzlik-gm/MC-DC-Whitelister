@@ -4,6 +4,10 @@ class ApiClient {
     this.FETCH_TIMEOUT = 10000;
   }
 
+  _buildUrl(guildConfig, endpoint) {
+    return `http://${guildConfig.mc_host}:${guildConfig.mc_port}${endpoint}`;
+  }
+
   _fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT);
@@ -11,22 +15,22 @@ class ApiClient {
   }
 
   async request(method, endpoint, guildConfig, body) {
-    const url = `${this.config.serverUrl}${endpoint}`;
+    const url = this._buildUrl(guildConfig, endpoint);
     let res;
-    
+
     try {
       const options = {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': guildConfig.apiKey,
+          'X-API-Key': guildConfig.api_key,
         },
       };
-      
+
       if (body) {
         options.body = JSON.stringify(body);
       }
-      
+
       res = await this._fetchWithTimeout(url, options);
     } catch (err) {
       this.logger.error('ApiClient', `${endpoint} — network error`, err);
@@ -125,21 +129,10 @@ class ApiClient {
     return this.post('/api/moderation/unmute', guildConfig, { player: username });
   }
 
-  async getServerStatus(guildConfig) {
-    try {
-      await this._fetchWithTimeout(`${this.config.serverUrl}/api/health`, {
-        headers: { 'X-API-Key': guildConfig.apiKey },
-      });
-      return { ok: false };
-    } catch {
-      return { ok: false };
-    }
-  }
-
   async healthCheck(guildConfig) {
     try {
-      const res = await this._fetchWithTimeout(`${this.config.serverUrl}/api/health`, {
-        headers: { 'X-API-Key': guildConfig.apiKey },
+      const res = await this._fetchWithTimeout(this._buildUrl(guildConfig, '/api/health'), {
+        headers: { 'X-API-Key': guildConfig.api_key },
       });
       return res.ok;
     } catch {
@@ -149,8 +142,8 @@ class ApiClient {
 
   async getConfig(guildConfig) {
     try {
-      const res = await this._fetchWithTimeout(`${this.config.serverUrl}/api/config`, {
-        headers: { 'X-API-Key': guildConfig.apiKey },
+      const res = await this._fetchWithTimeout(this._buildUrl(guildConfig, '/api/config'), {
+        headers: { 'X-API-Key': guildConfig.api_key },
       });
       const data = await res.json();
       if (!res.ok || data.success === false) return { ok: false, error: data.error || 'Failed to fetch config' };

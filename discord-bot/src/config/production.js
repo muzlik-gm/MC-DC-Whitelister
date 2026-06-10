@@ -5,9 +5,6 @@ function validateEnvironment() {
   const requiredVars = [
     'DISCORD_BOT_TOKEN',
     'DISCORD_CLIENT_ID',
-    'MINECRAFT_API_KEY',
-    'MINECRAFT_SERVER_HOST',
-    'MINECRAFT_SERVER_PORT',
   ];
 
   for (const varName of requiredVars) {
