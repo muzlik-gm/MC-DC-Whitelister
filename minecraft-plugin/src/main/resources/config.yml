@@ -1,10 +1,14 @@
 # WhitelistBot — by muzlik
 
+# Configuration settings
+# IMPORTANT: Use environment variables for production: MINECRAFT_API_KEY, MC_HOST, MC_PORT
+# For development, configure below (see .env.example for all options)
+
 server:
   host: "127.0.0.1"
   port: 25252
 
-api-key: "CHANGE_ME_TO_A_SECURE_RANDOM_KEY"
+api-key: ""
 
 # Unlink settings
 # allow-user-unlink: Whether players can use /wlb unlink

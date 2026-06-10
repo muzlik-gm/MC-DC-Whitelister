@@ -52,15 +52,42 @@ public class ConfigManager {
 
     public ConfigManager(FileConfiguration cfg) {
         this.config = cfg;
-        this.host = cfg.getString("server.host", "127.0.0.1");
-        int rawPort = cfg.getInt("server.port", 25252);
+        
+        // Check environment variables first
+        String envApiKey = System.getenv("MINECRAFT_API_KEY");
+        String envHost = System.getenv("MC_HOST");
+        String envPort = System.getenv("MC_PORT");
+        
+        // Set host from environment or config
+        this.host = envHost != null ? envHost : cfg.getString("server.host", "127.0.0.1");
+        
+        // Set port from environment or config
+        int rawPort;
+        if (envPort != null) {
+            try {
+                rawPort = Integer.parseInt(envPort);
+            } catch (NumberFormatException e) {
+                WhitelistBotPlugin.getInstance().getLogger().warning("Invalid MC_PORT environment variable " + envPort + ", using config value");
+                rawPort = cfg.getInt("server.port", 25252);
+            }
+        } else {
+            rawPort = cfg.getInt("server.port", 25252);
+        }
+        
         if (rawPort < 1 || rawPort > 65535) {
             this.port = 25252;
             WhitelistBotPlugin.getInstance().getLogger().warning("Invalid port " + rawPort + " in config.yml, using default 25252");
         } else {
             this.port = rawPort;
         }
-        this.apiKey = cfg.getString("api-key", "");
+        
+        // Set API key from environment or config
+        if (envApiKey != null && !envApiKey.isEmpty()) {
+            this.apiKey = envApiKey;
+        } else {
+            this.apiKey = cfg.getString("api-key", "");
+        }
+        
         this.allowUserUnlink = cfg.getBoolean("unlink.allow-user-unlink", true);
         this.antiAltEnabled = cfg.getBoolean("anti-alt.enabled", false);
         this.antiAltMaxAccounts = cfg.getInt("anti-alt.max-accounts", 1);
@@ -68,7 +95,16 @@ public class ConfigManager {
         String cooldownStr = cfg.getString("unlink.cooldown", "1w");
         this.cooldownIndex = parseCooldownIndex(cooldownStr);
 
-        if (apiKey.isEmpty() || apiKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY")) {
+        // Validate API key
+        if (this.apiKey.isEmpty()) {
+            WhitelistBotPlugin.getInstance().getLogger().severe(
+                "CRITICAL: Minecraft API key is not configured! " +
+                "Set MINECRAFT_API_KEY environment variable or configure in config.yml"
+            );
+            throw new RuntimeException("Minecraft API key is required for the plugin to function");
+        }
+        
+        if (this.apiKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY")) {
             WhitelistBotPlugin.getInstance().getLogger().warning(
                 "The api-key in config.yml is still the default! Change it immediately."
             );

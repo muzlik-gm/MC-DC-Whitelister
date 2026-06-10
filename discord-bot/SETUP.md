@@ -34,12 +34,23 @@ The token goes into `config.json` as `token`. Never share it or commit it.
 
 ## 5. Configure
 
-Edit `discord-bot/config.json`:
+**For Production:** Set environment variables:
+```bash
+export DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN"
+export DISCORD_CLIENT_ID="YOUR_CLIENT_ID"
+```
+
+**For Development:**
+```bash
+node -e "if(!require('fs').existsSync('./config.json')){require('fs').copyFileSync('./config.example.json','./config.json');console.log('Created config.json from example.');}else{console.log('config.json already exists.');}"
+```
+
+Then edit `discord-bot/config.json`:
 
 ```json
 {
-  "token": "YOUR_BOT_TOKEN",
-  "clientId": "YOUR_CLIENT_ID"
+  "token": "${DISCORD_BOT_TOKEN}",
+  "clientId": "${DISCORD_CLIENT_ID}"
 }
 ```
 
@@ -74,7 +85,11 @@ npm start             # starts the bot
 /setup apikey:<key> host:<ip> port:25252 role:@role
 ```
 
-Use this if you already have the API key from `config.yml`.
+**API Key Source:**
+- **If using MC to Discord pairing:** The API key is automatically generated and provided by the Minecraft plugin
+- **If using Discord to MC pairing:** You need the API key from your `plugins/WhitelistBot/config.yml` (use a random 32-char hex string)
+
+**For production:** Use environment variables - no need to edit config files.
 
 ## 8. Features After Setup
 

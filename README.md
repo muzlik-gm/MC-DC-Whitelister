@@ -54,12 +54,25 @@ The bot never exposes a port. It connects outbound to the plugin's HTTP server. 
 - A Discord bot token ([create one](https://discord.com/developers/applications))
 - A Minecraft server running Paper 1.20+ (Purpur, Pufferfish, etc.)
 
+### Environment Setup
+
+**For Production (recommended):** Set environment variables:
+```bash
+export DISCORD_BOT_TOKEN="YOUR_DISCORD_BOT_TOKEN"
+export DISCORD_CLIENT_ID="YOUR_DISCORD_CLIENT_ID"
+export MINECRAFT_API_KEY="YOUR_MINECRAFT_API_KEY"
+```
+
+**Or use a .env file:**
+```bash
+cp .env.example .env  # edit with your credentials
+```
+
 ### 1. Discord Bot
 
 ```bash
 cd discord-bot
 npm install
-cp config.example.json config.json  # fill in token + clientId
 node src/deploy.js <YOUR_GUILD_ID>
 node src/index.js
 ```
@@ -72,7 +85,9 @@ mvn clean package
 cp target/WhitelistBot-1.0.0.jar <server>/plugins/
 ```
 
-Edit `plugins/WhitelistBot/config.yml` — set a random `api-key` (32-char hex string).
+**No need to edit config.yml!** The plugin reads `MINECRAFT_API_KEY`, `MC_HOST`, and `MC_PORT` from environment variables first.
+
+If using the default API key rotation, create `plugins/WhitelistBot/config.yml` with your host/port settings.
 
 ### 3. Pair
 
@@ -185,12 +200,17 @@ Aliases: `/whitelistbot`, `/wbot`
 
 ### Plugin (`plugins/WhitelistBot/config.yml`)
 
+**For Production:** Use environment variables:
+- `MINECRAFT_API_KEY` — API key (required)
+- `MC_HOST` — Server host (defaults to config value)
+- `MC_PORT` — Server port (defaults to config value)
+
 ```yaml
 server:
   host: "127.0.0.1"
   port: 25252
 
-api-key: "CHANGE_ME_TO_A_SECURE_RANDOM_KEY"
+api-key: ""
 
 unlink:
   allow-user-unlink: true
@@ -213,19 +233,25 @@ milestones:
 |-------|---------|-------------|
 | `server.host` | `127.0.0.1` | Interface to bind the HTTP server on |
 | `server.port` | `25252` | Port for the API server |
-| `api-key` | (random) | Shared secret between bot and plugin |
+| `api-key` | (empty) | Shared secret (use MINECRAFT_API_KEY for production) |
 | `unlink.allow-user-unlink` | `true` | Whether players can use `/wlb unlink` |
 | `unlink.cooldown` | `1w` | Min time between unlink and re-link |
 | `anti-alt.enabled` | `false` | Limit accounts per IP address |
 | `anti-alt.max-accounts` | `1` | How many accounts allowed per IP |
 | `milestones` | `[1,10,50,100,500,1000]` | Playtime milestones (hours) that trigger events |
 
-### Discord Bot (`discord-bot/config.json`)
+### Discord Bot
+
+**For Production:** Use environment variables:
+- `DISCORD_BOT_TOKEN` — Bot token (required)
+- `DISCORD_CLIENT_ID` — Client ID (required)
+
+**For Development:** Set up with `cp config.example.json config.json`
 
 ```json
 {
-  "token": "YOUR_BOT_TOKEN",
-  "clientId": "YOUR_CLIENT_ID"
+  "token": "${DISCORD_BOT_TOKEN}",
+  "clientId": "${DISCORD_CLIENT_ID}"
 }
 ```
 
@@ -277,6 +303,7 @@ See [discord-bot/SETUP.md](discord-bot/SETUP.md) for systemd service setup.
 - **Parameterized SQL queries** prevent injection.
 - **Bounded thread pool** (10 threads max) prevents DoS against the plugin's HTTP server.
 - **Private IP validation** on the Discord bot prevents SSRF.
+- **Environment variable credential management** — All credentials are loaded from environment variables, not hardcoded.
 
 Report vulnerabilities at https://github.com/muzlik-gm/MC-DC-Whitelister/security/advisories/new
 
