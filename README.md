@@ -1,6 +1,6 @@
 # MC-DC-Whitelister
 
-A Discord bot and Minecraft plugin that lets players whitelist themselves from Discord. No admin intervention needed beyond the initial one-time pairing.
+A complete Discord ↔ Minecraft community platform. Self-whitelisting, role sync, moderation, analytics, and more — one bot, one plugin, zero hassle.
 
 ## Why This Exists
 
@@ -8,12 +8,34 @@ Minecraft whitelist management is tedious. Someone joins your Discord, you add t
 
 This project replaces that with a two-way bridge: a Discord bot with slash commands and a Minecraft plugin that exposes a lightweight HTTP API. Pair them once, and your members handle the rest.
 
+## Features
+
+- **Self-Whitelisting** — Players link their MC account from Discord without admin intervention
+- **Role Sync** — Discord roles ↔ LuckPerms groups with automatic sync
+- **Activity Tracking** — Joins, leaves, deaths, advancements, playtime milestones
+- **Moderation** — Ban, kick, mute, warn across both platforms
+- **Staff Notes** — Private staff records on players
+- **Audit Logs** — Every staff action recorded
+- **Remote Console** — Run MC server commands from Discord
+- **Dynamic Status Channels** — Auto-updating voice channels with player counts
+- **Nickname Sync** — Auto-sync Discord nicknames with MC usernames
+- **Events** — Scheduled events with RSVP and reminders
+- **Referrals** — Invite tracking with leaderboards
+- **Reputation** — Community trust system with role rewards
+- **Onboarding** — Auto-welcome and auto-role for new members
+- **Applications** — Questionnaire-based whitelist approval workflow
+- **Economy** — Check and give in-game currency from Discord
+- **Donation Tracking** — Record donations with leaderboard
+- **Auto Cleanup** — Remove inactive whitelist entries automatically
+- **Temporary Whitelisting** — Time-limited access for events or trials
+- **Interactive Help** — Button-based command browser
+
 ## Architecture
 
 ```
 ┌─────────────────┐         HTTP (port 25252)         ┌──────────────────┐
 │  Discord Bot     │ ──── one-time pairing ────────▶  │  MC Plugin       │
-│  (Node.js)       │ ◀──── API key + whitelist ────── │  (Paper 1.20.4)  │
+│  (Node.js)       │ ◀──── API key + whitelist ────── │  (Paper 1.20+)   │
 │                  │                                   │                  │
 │  - SQLite DB     │                                   │  - YAML storage  │
 │  - Slash cmds    │                                   │  - Feature API   │
@@ -23,82 +45,133 @@ This project replaces that with a two-way bridge: a Discord bot with slash comma
 
 The bot never exposes a port. It connects outbound to the plugin's HTTP server. The plugin binds to localhost by default — don't expose it publicly unless you know what you're doing.
 
-## Setup
+## Quick Start
 
-### What You Need
+### Prerequisites
 
-- A Discord application with a bot token (create one at https://discord.com/developers/applications)
-- A Minecraft server running Paper 1.20.4+ (Purpur, Pufferfish, etc.)
-- Java 17+ and Maven to build the plugin
-- Node.js 22+ to run the bot
+- Node.js 22+
+- Java 17+ and Maven
+- A Discord bot token ([create one](https://discord.com/developers/applications))
+- A Minecraft server running Paper 1.20+ (Purpur, Pufferfish, etc.)
 
-### Discord Bot
+### 1. Discord Bot
 
 ```bash
 cd discord-bot
 npm install
-cp config.example.json config.json
+cp config.example.json config.json  # fill in token + clientId
+node src/deploy.js <YOUR_GUILD_ID>
+node src/index.js
 ```
 
-Edit `config.json` with your bot token and client ID. Then:
-
-```bash
-node src/deploy.js <YOUR_GUILD_ID>   # register slash commands
-node src/index.js                     # start the bot
-```
-
-Detailed walkthrough: [discord-bot/SETUP.md](discord-bot/SETUP.md)
-
-### Minecraft Plugin
+### 2. Minecraft Plugin
 
 ```bash
 cd minecraft-plugin
 mvn clean package
+cp target/WhitelistBot-1.0.0.jar <server>/plugins/
 ```
 
-Copy `target/WhitelistBot-1.0.0.jar` to your server's `plugins/` folder and restart.
+Edit `plugins/WhitelistBot/config.yml` — set a random `api-key` (32-char hex string).
 
-Edit `plugins/WhitelistBot/config.yml`:
+### 3. Pair
 
-```yaml
-api-key: <generate a random 32-char hex string>
-```
+In Minecraft: `/wlb pair` — copy the command it shows and paste it in Discord.
 
-### Pair Them
+That's it. Players can now run `/whitelist <username>` in Discord to join.
 
-**From Minecraft (recommended):**
-```
-/wlb pair
-```
-Copy the command it shows you and paste it into Discord.
+Full walkthrough: [discord-bot/SETUP.md](discord-bot/SETUP.md)
 
-**From Discord:**
-```
-/pair ip:your.server.ip
-```
-Then in Minecraft: `/wlb connect <CODE>`, and paste the result back in Discord.
+## Commands Reference
 
-## Commands
+### Player Commands
 
-### Discord
+| Command | Description |
+|---------|-------------|
+| `/whitelist <username>` | Link your MC account to Discord |
+| `/whitelist <username> ref:<user>` | Link with a referral |
+| `/unlink` | Remove your linked MC account |
+| `/status` | Check your link status and server info |
+| `/applications apply <username>` | Submit a whitelist application |
+| `/rep give <user> [reason]` | Give reputation to another player |
+| `/rep check [user]` | Check reputation score |
+| `/rep leaderboard` | View reputation rankings |
+| `/referrals leaderboard` | View top referrers |
 
-| Command | What it does |
-|---------|--------------|
-| `/whitelist <username>` | Link your Discord to a MC account and join the whitelist |
-| `/unlink` | Remove yourself from the whitelist (cooldown applies) |
-| `/status` | Check your linked account and server info |
-| `/pair ip:<host>` | Send a challenge code to your MC server |
-| `/connect <code> ip:<host>` | Pair using a code from `/wlb pair` |
-| `/setup apikey:<key> [host] [port] [role]` | Manual config |
-| `/config` | Open the config panel |
-| `/unlinkserver` | Disconnect the bot from your MC server |
-| `/help` | List all commands |
-| `/about` | Bot info |
+### Server Setup
 
-### Minecraft
+| Command | Description |
+|---------|-------------|
+| `/setup apikey:<key>` | Manually configure MC server connection |
+| `/pair ip:<host>` | Generate a pairing code to connect |
+| `/connect <code> ip:<host>` | Complete the pairing process |
+| `/unlinkserver` | Disconnect Discord from MC server |
+| `/config` | Open the configuration panel |
+| `/onboarding channel <ch>` | Set welcome message channel |
+| `/onboarding message <text>` | Set welcome message template |
+| `/onboarding role <role>` | Set auto-assign role for joiners |
 
-| Command | What it does |
-|---------|--------------|
+### Server Management
+
+| Command | Description |
+|---------|-------------|
+| `/console <command>` | Run any MC server command remotely |
+| `/logging channel <ch>` | Set channel for activity logs |
+| `/logging types` | Toggle join/leave/death/advancement logs |
+| `/logging status` | Show current log configuration |
+| `/logging clear` | Remove logging channel |
+| `/statuschannel set <on> <pl>` | Set dynamic online player channels |
+| `/nickname sync` | Sync all nicknames to MC usernames |
+| `/nickname format <fmt>` | Set nickname format template |
+| `/cleanup config [days]` | Set inactivity auto-removal threshold |
+| `/cleanup dryrun` | Preview inactive accounts |
+| `/cleanup run` | Remove inactive whitelist entries |
+
+### Staff Moderation
+
+| Command | Description |
+|---------|-------------|
+| `/ban <username> [reason]` | Ban a player from MC server |
+| `/kick <username> [reason]` | Kick an online player |
+| `/mute <user> <duration> [reason]` | Mute a player |
+| `/mute remove <username>` | Unmute a player |
+| `/warn <username> <reason>` | Issue a warning to a player |
+| `/warnings <username>` | View all warnings |
+| `/delwarn <id>` | Remove a specific warning |
+| `/notes add <user> <content>` | Add a private staff note |
+| `/notes list <username>` | View staff notes |
+| `/audit [limit]` | Recent staff actions log |
+
+### Community Features
+
+| Command | Description |
+|---------|-------------|
+| `/roles set @role <group>` | Map Discord role to LuckPerms group |
+| `/roles list` | View all role mappings |
+| `/roles sync` | Sync all members to their mapped groups |
+| `/events create` | Create a scheduled event |
+| `/events list` | View upcoming events |
+| `/events rsvp <id>` | RSVP to an event |
+| `/tempwhitelist add <user> <hours>` | Time-limited whitelist invite |
+| `/applications setup` | Configure application questions |
+| `/applications pending` | Review pending applications |
+| `/applications approve <id>` | Approve an application |
+| `/economy balance <user>` | Check in-game balance |
+| `/economy give <user> <amt>` | Give in-game currency |
+| `/donations set <user> <amt>` | Record a donation |
+
+### Information
+
+| Command | Description |
+|---------|-------------|
+| `/help [category]` | View help by category with interactive buttons |
+| `/tutorial` | Full setup guide with step-by-step |
+| `/about` | Bot information and version |
+
+### Minecraft Commands
+
+| Command | Description |
+|---------|-------------|
 | `/wlb pair` | Generate a pairing code |
 | `/wlb connect <code>` | Confirm a challenge from Discord |
 | `/wlb status` | Show plugin status |
@@ -106,35 +179,46 @@ Then in Minecraft: `/wlb connect <CODE>`, and paste the result back in Discord.
 
 Aliases: `/whitelistbot`, `/wbot`
 
+**Total: 47 Discord commands + 4 Minecraft commands**
+
 ## Configuration Reference
 
 ### Plugin (`plugins/WhitelistBot/config.yml`)
 
 ```yaml
-http:
-  host: 127.0.0.1
+server:
+  host: "127.0.0.1"
   port: 25252
 
-api-key: CHANGE_ME
+api-key: "CHANGE_ME_TO_A_SECURE_RANDOM_KEY"
 
 unlink:
-  enabled: true
-  cooldown: 1w
+  allow-user-unlink: true
+  cooldown: "1w"
 
 anti-alt:
   enabled: false
   max-accounts: 1
+
+milestones:
+  - 1
+  - 10
+  - 50
+  - 100
+  - 500
+  - 1000
 ```
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `http.host` | `127.0.0.1` | Interface to bind the HTTP server on |
-| `http.port` | `25252` | Port for the API server |
+| `server.host` | `127.0.0.1` | Interface to bind the HTTP server on |
+| `server.port` | `25252` | Port for the API server |
 | `api-key` | (random) | Shared secret between bot and plugin |
-| `unlink.enabled` | `true` | Whether unlink is allowed at all |
-| `unlink.cooldown` | `1w` | Min time between unlink and re-link (`10m`, `1h`, `7d`, `1w`, `30d`) |
+| `unlink.allow-user-unlink` | `true` | Whether players can use `/wlb unlink` |
+| `unlink.cooldown` | `1w` | Min time between unlink and re-link |
 | `anti-alt.enabled` | `false` | Limit accounts per IP address |
 | `anti-alt.max-accounts` | `1` | How many accounts allowed per IP |
+| `milestones` | `[1,10,50,100,500,1000]` | Playtime milestones (hours) that trigger events |
 
 ### Discord Bot (`discord-bot/config.json`)
 
@@ -147,35 +231,30 @@ anti-alt:
 
 ## How Pairing Works
 
-There are two flows, but they converge on the same result.
-
-**Flow A — MC → Discord (easiest):**
-1. `/wlb pair` on the server — plugin generates a 6-char code and shows a `/connect <code> ip:<host>` command
-2. Paste that command into Discord
-3. Bot calls `POST /api/pair/validate` on the plugin with the code
-4. Plugin confirms the code matches, returns an API key
+**Flow A — MC to Discord (easiest):**
+1. `/wlb pair` on the server — plugin generates a 6-char code
+2. Paste the command it shows into Discord
+3. Bot calls `POST /api/pair/validate` on the plugin
+4. Plugin confirms the code, returns an API key
 5. Bot stores the config — done
 
-**Flow B — Discord → MC:**
-1. `/pair ip:host` in Discord — bot generates a code and calls `POST /api/pair/challenge` on the plugin
-2. Plugin stores the challenge
-3. `/wlb connect <CODE>` in Minecraft — plugin looks up the challenge, returns a `/connect` command
-4. Paste that command into Discord
-5. Same validation as Flow A
+**Flow B — Discord to MC:**
+1. `/pair ip:host` in Discord — bot generates a code
+2. In MC: `/wlb connect <CODE>` — plugin returns a command
+3. Paste that command into Discord
+4. Same validation as Flow A
 
-After pairing, the bot stores `mc_host`, `mc_port`, and `api_key` in its SQLite database. Everything after that uses the API key for auth.
+After pairing, the bot stores `mc_host`, `mc_port`, and `api_key` in its SQLite database.
 
 ## Deployment
 
-The bot is designed to run on a Linux VPS behind systemd. The repo includes:
+Designed for Linux VPS behind systemd:
 
 - **systemd service** — auto-starts on boot, restarts on crash, logs to journald
 - **Graceful shutdown** — SIGTERM handler drains connections before exit
-- **Command syncing** — only PATCHes commands that actually changed (no destructive global command deletion at runtime)
-- **GitHub Actions deploy** — pushes to `main` trigger an SSH deploy to the VPS
-- **Daily fallback** — cron job at 3:00 AM pulls updates if the webhook missed one
-
-If you want to self-host, the setup is:
+- **Command syncing** — only PATCHes commands that changed (no destructive global deletion)
+- **GitHub Actions deploy** — pushes to `main` trigger SSH deploy
+- **Daily fallback** — cron job at 3:00 AM pulls updates if webhook missed
 
 ```bash
 # On the VPS
@@ -183,23 +262,23 @@ cd /opt
 git clone https://github.com/muzlik-gm/MC-DC-Whitelister.git
 cd discord-bot
 npm install
-cp config.example.json config.json   # fill in credentials
+cp config.example.json config.json
 node src/deploy.js <GUILD_ID>
 ```
 
-Then set up the systemd service (see [discord-bot/SETUP.md](discord-bot/SETUP.md) for details).
+See [discord-bot/SETUP.md](discord-bot/SETUP.md) for systemd service setup.
 
 ## Security
 
-- **No telemetry.** Zero analytics, zero third-party calls. The bot only talks to Discord and your MC server.
-- **API key is sent in cleartext** over HTTP. Keep the plugin on localhost or a trusted network. Don't expose port 25252 publicly.
+- **No telemetry** — Zero analytics, zero third-party calls. The bot only talks to Discord and your MC server.
+- **API key in cleartext over HTTP** — Keep the plugin on localhost or a trusted network. Don't expose port 25252 publicly.
 - **Pairing codes expire** after 5 minutes and are single-use.
 - **Constant-time API key comparison** prevents timing side-channel attacks.
 - **Parameterized SQL queries** prevent injection.
 - **Bounded thread pool** (10 threads max) prevents DoS against the plugin's HTTP server.
 - **Private IP validation** on the Discord bot prevents SSRF.
 
-If you find a vulnerability, report it at https://github.com/muzlik-gm/MC-DC-Whitelister/security/advisories/new
+Report vulnerabilities at https://github.com/muzlik-gm/MC-DC-Whitelister/security/advisories/new
 
 ## License
 

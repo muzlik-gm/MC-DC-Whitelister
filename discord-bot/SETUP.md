@@ -27,8 +27,10 @@ The token goes into `config.json` as `token`. Never share it or commit it.
 
 1. Left sidebar → **OAuth2 > URL Generator**
 2. Scopes: `bot`, `applications.commands`
-3. Bot Permissions: `Send Messages`, `Embed Links`, `Use Slash Commands`
+3. Bot Permissions: `Send Messages`, `Embed Links`, `Use Slash Commands`, `Manage Nicknames`, `Manage Roles`
 4. Copy the URL → open in browser → select your server → **Authorize**
+
+> **Note:** `Manage Nicknames` is needed for nickname sync. `Manage Roles` is needed for role sync. If you don't use these features, you can skip those permissions.
 
 ## 5. Configure
 
@@ -49,6 +51,8 @@ npm install
 node src/deploy.js    # registers slash commands
 npm start             # starts the bot
 ```
+
+> **Tip:** After setup, run `/help` or `>help` in Discord to see all available commands with interactive category buttons.
 
 ## 7. Pair with Minecraft
 
@@ -71,3 +75,18 @@ npm start             # starts the bot
 ```
 
 Use this if you already have the API key from `config.yml`.
+
+## 8. Features After Setup
+
+Once paired, your community has access to:
+
+- **Self-whitelisting** — `/whitelist <username>` to link MC accounts
+- **Role sync** — `/roles set @role <group>` to map Discord roles to LuckPerms
+- **Nickname sync** — `/nickname sync` to auto-match Discord nicknames to MC usernames
+- **Activity logging** — `/logging channel <ch>` to track joins, leaves, deaths, advancements
+- **Dynamic status channels** — `/statuschannel set` for auto-updating player counts
+- **Moderation** — `/ban`, `/kick`, `/mute`, `/warn` across both platforms
+- **Events** — `/events create` with RSVP and reminders
+- **Applications** — `/applications setup` for questionnaire-based whitelist approval
+- **Reputation** — `/rep give` and `/rep check` for community trust
+- **And more** — run `/help` to see everything
