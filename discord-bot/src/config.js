@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 function loadConfig() {
   const env = process.env;
@@ -10,9 +11,10 @@ function loadConfig() {
     return { token, clientId };
   }
 
-  if (fs.existsSync('.env')) {
+  const envPath = path.join(__dirname, '..', '.env');
+  if (fs.existsSync(envPath)) {
     try {
-      require('dotenv').config();
+      require('dotenv').config({ path: envPath });
       const token = process.env.DISCORD_BOT_TOKEN;
       const clientId = process.env.DISCORD_CLIENT_ID;
       if (token && clientId) {
@@ -23,9 +25,21 @@ function loadConfig() {
     }
   }
 
-  const cfgPath = require('path').join(__dirname, '..', 'config.example.json');
+  const cfgPath = path.join(__dirname, '..', 'config.json');
   if (fs.existsSync(cfgPath)) {
-    console.warn('WARNING: No Discord credentials found in environment variables or .env file.');
+    try {
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      if (cfg.token && cfg.clientId) {
+        return { token: cfg.token, clientId: cfg.clientId };
+      }
+    } catch (err) {
+      // config.json parse error - ignore, fall through
+    }
+  }
+
+  const examplePath = path.join(__dirname, '..', 'config.example.json');
+  if (fs.existsSync(examplePath)) {
+    console.warn('WARNING: No Discord credentials found in environment variables, .env, or config.json.');
     console.warn('Please set DISCORD_BOT_TOKEN and DISCORD_CLIENT_ID environment variables.');
     console.warn('Config will be loaded from config.example.json for development only.');
     return { token: 'YOUR_BOT_TOKEN', clientId: 'YOUR_BOT_CLIENT_ID' };
