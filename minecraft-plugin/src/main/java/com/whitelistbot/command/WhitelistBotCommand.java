@@ -165,27 +165,15 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
         String host = config.getHost();
         int port = config.getPort();
 
-        if (host.equals("127.0.0.1") || host.equals("0.0.0.0")) {
+        String apiKey = config.getApiKey();
+        if (apiKey == null || apiKey.isEmpty() || apiKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY")) {
             sender.sendMessage(separator());
-            sender.sendMessage(bad("Server address not configured!"));
-            sender.sendMessage(Component.empty());
-            sender.sendMessage(dim("Auto-detection doesn't work behind NAT/Pterodactyl."));
-            sender.sendMessage(dim("You must set the external address in config.yml:"));
-            sender.sendMessage(Component.empty());
-            sender.sendMessage(cmd("1. Edit ").append(val("plugins/WhitelistBot/config.yml")));
-            sender.sendMessage(cmd("2. Set ").append(val("server.host")).append(dim(" to your public hostname:")));
-            sender.sendMessage(Component.text("     host: \"in-02.kwickcloud.in\"", NamedTextColor.YELLOW));
-            sender.sendMessage(cmd("3. Set ").append(val("server.port")).append(dim(" to the allocated API port (default: 25252)")));
-            sender.sendMessage(Component.text("     port: 25252", NamedTextColor.YELLOW));
-            sender.sendMessage(cmd("4. In your Pterodactyl panel, allocate ").append(val("port 25252")).append(dim(" (TCP)")));
-            sender.sendMessage(cmd("5. Restart the server, then run ").append(val("/wlb pair")).append(dim(" again")));
-            sender.sendMessage(Component.empty());
-            sender.sendMessage(dim("The API port (25252) is separate from the MC game port (25605)."));
+            sender.sendMessage(bad("API key not configured!"));
+            sender.sendMessage(dim("Run ").append(cmd("/wlb pair")).append(dim(" again after the server starts fully.")));
             sender.sendMessage(separator());
             return;
         }
 
-        String apiKey = config.getApiKey();
         String code = pairing.createSession(host, port, apiKey);
 
         String portDisplay = (port != DEFAULT_PORT) ? " port:" + port : "";
@@ -205,6 +193,14 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
         );
         sender.sendMessage(dim("Then ").append(bold("paste", NamedTextColor.GREEN)).append(dim(" it into Discord.")));
         sender.sendMessage(bad("Code expires in 5 minutes. One-time use."));
+
+        // Show port allocation reminder for hosted servers
+        if (port == DEFAULT_PORT) {
+            sender.sendMessage(Component.empty());
+            sender.sendMessage(warn("Important: If your server is hosted (Pterodactyl, etc.),"));
+            sender.sendMessage(warn("allocate port " + port + " (TCP) in your panel, or pairing will fail."));
+        }
+
         sender.sendMessage(dim("Tip: Use ").append(cmd(">tutorial")).append(dim(" in Discord for the full guide.")));
         sender.sendMessage(separator());
     }
@@ -322,12 +318,15 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(separator());
         sender.sendMessage(label("Server Status"));
         sender.sendMessage(
-                dim("Host").append(dim(": ")).append(val(host + ":" + port))
+                dim("External Host").append(dim(": ")).append(val(host))
+        );
+        sender.sendMessage(
+                dim("API Port").append(dim(": ")).append(val(String.valueOf(port)))
         );
         sender.sendMessage(
                 dim("API Server").append(dim(": ")).append(
                         plugin.getApiServerRunning()
-                                ? good("Running")
+                                ? good("Listening on 0.0.0.0:" + port)
                                 : bad("Stopped"))
         );
         sender.sendMessage(

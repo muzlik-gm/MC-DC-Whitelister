@@ -2,8 +2,14 @@ package com.whitelistbot.config;
 
 import com.whitelistbot.WhitelistBotPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Properties;
 
 public class ConfigManager {
 
@@ -58,8 +64,17 @@ public class ConfigManager {
         String envHost = System.getenv("MC_HOST");
         String envPort = System.getenv("MC_PORT");
         
-        // Set host from environment or config
-        this.host = envHost != null ? envHost : cfg.getString("server.host", "127.0.0.1");
+        // Set host: env var → config.yml → auto-detect
+        if (envHost != null && !envHost.isEmpty()) {
+            this.host = envHost;
+        } else {
+            String configHost = cfg.getString("server.host", "127.0.0.1");
+            if (configHost.equals("127.0.0.1") || configHost.equals("0.0.0.0") || configHost.isEmpty()) {
+                this.host = detectExternalHost(configHost);
+            } else {
+                this.host = configHost;
+            }
+        }
         
         // Set port from environment or config
         int rawPort;
@@ -113,6 +128,58 @@ public class ConfigManager {
             if (COOLDOWN_KEYS[i].equalsIgnoreCase(key)) return i;
         }
         return DEFAULT_COOLDOWN_INDEX;
+    }
+
+    private String detectExternalHost(String fallback) {
+        WhitelistBotPlugin plugin = WhitelistBotPlugin.getInstance();
+        if (plugin == null) return fallback;
+
+        // 1. Check Pterodactyl environment variables
+        String[] envNames = {"SERVER_IP", "ADDRESS", "EXTERNAL_IP", "PUBLIC_IP", "HOSTNAME"};
+        for (String envName : envNames) {
+            String val = System.getenv(envName);
+            if (val != null && !val.isEmpty() && !val.equals("127.0.0.1") && !val.equals("0.0.0.0")) {
+                plugin.getLogger().info("Detected external host from " + envName + ": " + val);
+                return val;
+            }
+        }
+
+        // 2. Read server.properties from the MC server directory (parent of plugin folder)
+        try {
+            File propsFile = new File(plugin.getDataFolder().getParentFile(), "server.properties");
+            if (propsFile.exists()) {
+                Properties props = new Properties();
+                try (InputStreamReader reader = new InputStreamReader(new FileInputStream(propsFile), StandardCharsets.ISO_8859_1)) {
+                    props.load(reader);
+                }
+                String serverIp = props.getProperty("server-ip", "").trim();
+                if (!serverIp.isEmpty() && !serverIp.equals("0.0.0.0")) {
+                    plugin.getLogger().info("Detected external host from server.properties: " + serverIp);
+                    return serverIp;
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().fine("Could not read server.properties: " + e.getMessage());
+        }
+
+        // 3. Try to detect from network interfaces
+        try {
+            java.net.NetworkInterface ni = java.net.NetworkInterface.getByName("eth0");
+            if (ni != null) {
+                java.util.Enumeration<java.net.InetAddress> addrs = ni.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    java.net.InetAddress addr = addrs.nextElement();
+                    if (!addr.isLoopbackAddress() && addr instanceof java.net.Inet4Address) {
+                        String ip = addr.getHostAddress();
+                        plugin.getLogger().info("Detected external host from eth0: " + ip);
+                        return ip;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        plugin.getLogger().warning("Could not auto-detect external host. Using fallback: " + fallback);
+        return fallback;
     }
 
     public void setApiKey(String newKey) {
