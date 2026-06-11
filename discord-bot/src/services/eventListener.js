@@ -53,7 +53,7 @@ class EventListener {
   async registerBotEvents() {
     this.bot.once('ready', async () => {
       this.logger.info('EventListener', `Bot logged in as ${this.bot.user.tag}`);
-      this.logger.info('EventListener', `Loaded ${this.bot.commands.size} commands in memory`);
+      this.logger.info('EventListener', `Loaded ${this.commandHandler.commands.size} commands in memory`);
 
       this.bot.user.setPresence({
         activities: [{ name: '>help for commands', type: 3 }],
@@ -164,7 +164,7 @@ class EventListener {
 
       if (!interaction.isChatInputCommand()) return;
 
-      const cmd = this.bot.commands.get(interaction.commandName);
+      const cmd = this.commandHandler.commands.get(interaction.commandName);
       if (!cmd) {
         return interaction.reply({
           embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('Unknown command.')],
