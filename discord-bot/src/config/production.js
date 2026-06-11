@@ -1,25 +1,18 @@
-function validateEnvironment() {
+function validateEnvironment(config) {
   const env = process.env;
   const errors = [];
 
-  const requiredVars = [
-    'DISCORD_BOT_TOKEN',
-    'DISCORD_CLIENT_ID',
-  ];
+  const token = config?.token || env.DISCORD_BOT_TOKEN;
+  const clientId = config?.clientId || env.DISCORD_CLIENT_ID;
 
-  for (const varName of requiredVars) {
-    if (!env[varName]) {
-      errors.push(`Missing required environment variable: ${varName}`);
-    }
+  if (!token) {
+    errors.push('Missing required environment variable: DISCORD_BOT_TOKEN');
+  } else if (!token.includes('.') || token.split('.').length < 3) {
+    errors.push('Invalid Discord bot token format');
   }
 
-  const token = env.DISCORD_BOT_TOKEN;
-  const clientId = env.DISCORD_CLIENT_ID;
-
-  if (token && clientId) {
-    if (!token.includes('.') || token.split('.').length < 3) {
-      errors.push('Invalid Discord bot token format');
-    }
+  if (!clientId) {
+    errors.push('Missing required environment variable: DISCORD_CLIENT_ID');
   }
 
   if (errors.length > 0) {

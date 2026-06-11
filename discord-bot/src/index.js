@@ -7,7 +7,9 @@ const productionConfig = require('./config/production');
 async function initialize() {
   logger.info('Bot', 'Starting WhitelistBot...');
 
-  if (!productionConfig.validateEnvironment()) {
+  const cfg = config();
+
+  if (!productionConfig.validateEnvironment(cfg)) {
     process.exit(1);
   }
 
@@ -30,13 +32,13 @@ async function initialize() {
   };
 
   try {
-    const commandHandler = new services.CommandHandler(client, config, logger);
+    const commandHandler = new services.CommandHandler(client, cfg, logger);
     await commandHandler.start();
 
     const apiClient = new services.ApiClient(logger);
     apiClient.start();
 
-    const cleanupService = new services.CleanupService(config, logger, client, apiClient, dbs);
+    const cleanupService = new services.CleanupService(cfg, logger, client, apiClient, dbs);
     cleanupService.start();
 
     const eventListener = new services.EventListener(client, commandHandler, logger);
@@ -58,7 +60,7 @@ async function initialize() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  await client.login(config.token).catch(err => {
+  await client.login(cfg.token).catch(err => {
     logger.error('Bot', 'Login failed', err);
     process.exit(1);
   });
