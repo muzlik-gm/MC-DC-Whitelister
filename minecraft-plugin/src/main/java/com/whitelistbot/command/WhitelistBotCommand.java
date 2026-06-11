@@ -17,11 +17,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -171,14 +166,23 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
         int port = config.getPort();
 
         if (host.equals("127.0.0.1") || host.equals("0.0.0.0")) {
-            String detected = detectPublicIp();
-            if (detected != null) {
-                host = detected;
-                sender.sendMessage(dim("Auto-detected public IP: " + detected));
-            } else {
-                sender.sendMessage(bad("Could not auto-detect public IP. Set "));
-                sender.sendMessage(cmd("server.host").append(dim(" in config.yml to your server's external IP, then restart.")));
-            }
+            sender.sendMessage(separator());
+            sender.sendMessage(bad("Server address not configured!"));
+            sender.sendMessage(Component.empty());
+            sender.sendMessage(dim("Auto-detection doesn't work behind NAT/Pterodactyl."));
+            sender.sendMessage(dim("You must set the external address in config.yml:"));
+            sender.sendMessage(Component.empty());
+            sender.sendMessage(cmd("1. Edit ").append(val("plugins/WhitelistBot/config.yml")));
+            sender.sendMessage(cmd("2. Set ").append(val("server.host")).append(dim(" to your public hostname:")));
+            sender.sendMessage(Component.text("     host: \"in-02.kwickcloud.in\"", NamedTextColor.YELLOW));
+            sender.sendMessage(cmd("3. Set ").append(val("server.port")).append(dim(" to the allocated API port (default: 25252)")));
+            sender.sendMessage(Component.text("     port: 25252", NamedTextColor.YELLOW));
+            sender.sendMessage(cmd("4. In your Pterodactyl panel, allocate ").append(val("port 25252")).append(dim(" (TCP)")));
+            sender.sendMessage(cmd("5. Restart the server, then run ").append(val("/wlb pair")).append(dim(" again")));
+            sender.sendMessage(Component.empty());
+            sender.sendMessage(dim("The API port (25252) is separate from the MC game port (25605)."));
+            sender.sendMessage(separator());
+            return;
         }
 
         String apiKey = config.getApiKey();
@@ -359,33 +363,5 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
         new ConfigGUI(plugin, player);
     }
 
-    private String detectPublicIp() {
-        String[] providers = {
-            "https://api.ipify.org",
-            "https://ifconfig.me/ip",
-            "https://icanhazip.com",
-            "https://ipecho.net/plain"
-        };
-        try {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(3))
-                    .build();
-            for (String url : providers) {
-                try {
-                    HttpRequest request = HttpRequest.newBuilder()
-                            .uri(URI.create(url))
-                            .timeout(Duration.ofSeconds(3))
-                            .build();
-                    HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString());
-                    if (resp.statusCode() == 200) {
-                        String ip = resp.body().trim();
-                        if (ip.matches("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")) {
-                            return ip;
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
-        return null;
-    }
+
 }
