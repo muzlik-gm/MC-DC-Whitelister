@@ -17,6 +17,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -164,6 +169,18 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
     private void handlePair(CommandSender sender) {
         String host = config.getHost();
         int port = config.getPort();
+
+        if (host.equals("127.0.0.1") || host.equals("0.0.0.0")) {
+            String detected = detectPublicIp();
+            if (detected != null) {
+                host = detected;
+                sender.sendMessage(dim("Auto-detected public IP: " + detected));
+            } else {
+                sender.sendMessage(bad("Could not auto-detect public IP. Set "));
+                sender.sendMessage(cmd("server.host").append(dim(" in config.yml to your server's external IP, then restart.")));
+            }
+        }
+
         String apiKey = config.getApiKey();
         String code = pairing.createSession(host, port, apiKey);
 
@@ -340,5 +357,35 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
             return;
         }
         new ConfigGUI(plugin, player);
+    }
+
+    private String detectPublicIp() {
+        String[] providers = {
+            "https://api.ipify.org",
+            "https://ifconfig.me/ip",
+            "https://icanhazip.com",
+            "https://ipecho.net/plain"
+        };
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(3))
+                    .build();
+            for (String url : providers) {
+                try {
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .timeout(Duration.ofSeconds(3))
+                            .build();
+                    HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (resp.statusCode() == 200) {
+                        String ip = resp.body().trim();
+                        if (ip.matches("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")) {
+                            return ip;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }
