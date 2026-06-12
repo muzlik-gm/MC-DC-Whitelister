@@ -32,10 +32,14 @@ This project replaces that with a two-way bridge: a Discord bot with slash comma
 
 ## Architecture
 
+The bot communicates with the MC plugin over HTTP (default port 25252). Two connection modes:
+
+### Direct Mode (self-hosted MC server)
+
 ```
 ┌─────────────────┐         HTTP (port 25252)         ┌──────────────────┐
-│  Discord Bot     │ ──── one-time pairing ────────▶  │  MC Plugin       │
-│  (Node.js)       │ ◀──── API key + whitelist ────── │  (Paper 1.20+)   │
+│  Discord Bot     │ ◀──── one-time pairing ────────▶ │  MC Plugin       │
+│  (Node.js)       │ ──── API key + whitelist ──────▶ │  (Paper 1.20+)   │
 │                  │                                   │                  │
 │  - SQLite DB     │                                   │  - YAML storage  │
 │  - Slash cmds    │                                   │  - Feature API   │
@@ -43,7 +47,19 @@ This project replaces that with a two-way bridge: a Discord bot with slash comma
 └─────────────────┘                                   └──────────────────┘
 ```
 
-The bot never exposes a port. It connects outbound to the plugin's HTTP server. The plugin binds to localhost by default — don't expose it publicly unless you know what you're doing.
+The bot connects outbound to the plugin. The plugin binds to `127.0.0.1` by default — keep it localhost unless you know what you're doing.
+
+### Tunnel Mode (Pterodactyl / restricted hosting)
+
+```
+┌─────────────────┐  WebSocket (port 9000)   ┌───────────────────┐  HTTP (127.0.0.1:25252)  ┌──────────────────┐
+│  Discord Bot     │ ◀──── reverse tunnel ───▶  VPS (tunnel     │ ◀──── outbound connect ──▶│  MC Plugin       │
+│  (VPS)           │ ──── request/response ──▶  server, port    │ ──── proxy to local ─────▶│  (Pterodactyl)   │
+│                  │                          9000)              │                           │                  │
+└─────────────────┘                           └───────────────────┘                           └──────────────────┘
+```
+
+Pterodactyl containers can't expose custom ports. The plugin connects **outbound** via WebSocket to a lightweight tunnel server on your VPS. The bot routes all API calls through that same WebSocket connection. No open ports needed on the MC server.
 
 ## Quick Start
 
@@ -56,42 +72,44 @@ The bot never exposes a port. It connects outbound to the plugin's HTTP server. 
 
 ### Environment Setup
 
-**For Production (recommended):** Set environment variables:
+Copy the example env file and edit with your credentials:
+
 ```bash
-export DISCORD_BOT_TOKEN="YOUR_DISCORD_BOT_TOKEN"
-export DISCORD_CLIENT_ID="YOUR_DISCORD_CLIENT_ID"
-export MINECRAFT_API_KEY="YOUR_MINECRAFT_API_KEY"
+cp .env.example .env
 ```
 
-**Or use a .env file:**
-```bash
-cp .env.example .env  # edit with your credentials
-```
+Required variables:
+- `DISCORD_BOT_TOKEN` — Your Discord bot token
+- `DISCORD_CLIENT_ID` — Your Discord application client ID
+
+Optional:
+- `TUNNEL_PORT` — Port for the WebSocket tunnel server (default `9000`)
 
 ### 1. Discord Bot
 
 ```bash
 cd discord-bot
 npm install
-node src/deploy.js <YOUR_GUILD_ID>
-node src/index.js
+node src/deploy.js
+npm start
 ```
 
 ### 2. Minecraft Plugin
 
 ```bash
 cd minecraft-plugin
-mvn clean package
+mvn clean package -DskipTests
 cp target/WhitelistBot-1.0.0.jar <server>/plugins/
 ```
 
-**No need to edit config.yml!** The plugin reads `MINECRAFT_API_KEY`, `MC_HOST`, and `MC_PORT` from environment variables first.
-
-If using the default API key rotation, create `plugins/WhitelistBot/config.yml` with your host/port settings.
-
 ### 3. Pair
 
-In Minecraft: `/wlb pair` — copy the command it shows and paste it in Discord.
+**If self-hosted:** In Minecraft: `/wlb pair` — copy the command it shows and paste it in Discord.
+
+**If using Pterodactyl (tunnel mode):**
+1. Set `tunnel.host` and `tunnel.port` in `plugins/WhitelistBot/config.yml`
+2. Ensure the VPS firewall allows the tunnel port (default `9000/tcp`)
+3. Follow the same pairing flow: `/wlb pair` in Minecraft → paste in Discord
 
 That's it. Players can now run `/whitelist <username>` in Discord to join.
 
@@ -220,6 +238,10 @@ anti-alt:
   enabled: false
   max-accounts: 1
 
+tunnel:
+  host: ""
+  port: 9000
+
 milestones:
   - 1
   - 10
@@ -238,6 +260,8 @@ milestones:
 | `unlink.cooldown` | `1w` | Min time between unlink and re-link |
 | `anti-alt.enabled` | `false` | Limit accounts per IP address |
 | `anti-alt.max-accounts` | `1` | How many accounts allowed per IP |
+| `tunnel.host` | (empty) | VPS host/IP for reverse WebSocket tunnel (leave empty for direct mode) |
+| `tunnel.port` | `9000` | VPS tunnel server port |
 | `milestones` | `[1,10,50,100,500,1000]` | Playtime milestones (hours) that trigger events |
 
 ### Discord Bot
@@ -272,40 +296,138 @@ milestones:
 
 After pairing, the bot stores `mc_host`, `mc_port`, and `api_key` in its SQLite database.
 
+**Tunnel mode:** When the plugin connects via WebSocket, the bot automatically routes all API calls through the tunnel instead of direct HTTP. No config changes needed after pairing.
+
+## Tunnel Mode (Pterodactyl)
+
+Pterodactyl containers only expose the Minecraft game port. The reverse WebSocket tunnel solves this:
+
+1. **Bot** runs a WebSocket server (port `9000`) on your VPS
+2. **Plugin** connects outbound to the VPS WebSocket server on startup
+3. **Bot** detects the tunnel connection and routes API requests through it
+4. **No custom ports** needed on the MC server — the plugin only needs outbound internet access
+
+### Setup
+
+**On the VPS (bot host):**
+```bash
+# Ensure port 9000 is open
+sudo ufw allow 9000/tcp
+```
+
+**In `plugins/WhitelistBot/config.yml` on the MC server:**
+```yaml
+tunnel:
+  host: "your.vps.ip"
+  port: 9000
+```
+
+The plugin connects to the tunnel automatically on startup and reconnects if disconnected.
+
 ## Deployment
 
-Designed for Linux VPS behind systemd:
+### VPS Deployment
+
+The bot is designed for a Linux VPS behind systemd:
 
 - **systemd service** — auto-starts on boot, restarts on crash, logs to journald
 - **Graceful shutdown** — SIGTERM handler drains connections before exit
 - **Command syncing** — only PATCHes commands that changed (no destructive global deletion)
 - **GitHub Actions deploy** — pushes to `main` trigger SSH deploy
-- **Daily fallback** — cron job at 3:00 AM pulls updates if webhook missed
+- **Daily fallback** — cron job at 12:00 PM pulls updates if webhook missed
 
 ```bash
 # On the VPS
-cd /opt
 git clone https://github.com/muzlik-gm/MC-DC-Whitelister.git
-cd discord-bot
+cd MC-DC-Whitelister/discord-bot
 npm install
 cp config.example.json config.json
-node src/deploy.js <GUILD_ID>
+# Edit config.json with your Discord credentials
+node src/deploy.js
 ```
 
-See [discord-bot/SETUP.md](discord-bot/SETUP.md) for systemd service setup.
+### Pterodactyl Plugin Deployment
+
+```bash
+# Build the plugin
+cd minecraft-plugin
+mvn clean package -DskipTests
+
+# Upload the jar to Pterodactyl's /plugins/ via file manager
+# target/WhitelistBot-1.0.0.jar → /plugins/
+
+# Restart the server from the Pterodactyl panel
+```
+
+### GitHub Actions
+
+A deploy workflow (`.github/workflows/deploy.yml`) runs on every push to `main`:
+
+1. Checkout code from GitHub
+2. SSH into the VPS using stored secrets (`VPS_HOST`, `VPS_SSH_KEY`)
+3. Pull latest code, install dependencies, restart the bot
+
+Secrets required in the repository:
+- `VPS_HOST` — VPS IP address
+- `VPS_USERNAME` — SSH user (default `ubuntu`)
+- `VPS_SSH_KEY` — Private SSH key for authentication
+
+### Rollback
+
+A rollback script (`rollback.sh`) is included for manual recovery:
+```bash
+bash rollback.sh
+```
 
 ## Security
 
 - **No telemetry** — Zero analytics, zero third-party calls. The bot only talks to Discord and your MC server.
 - **API key in cleartext over HTTP** — Keep the plugin on localhost or a trusted network. Don't expose port 25252 publicly.
+- **WebSocket tunnel auth** — The plugin authenticates with the tunnel server using the API key.
 - **Pairing codes expire** after 5 minutes and are single-use.
 - **Constant-time API key comparison** prevents timing side-channel attacks.
 - **Parameterized SQL queries** prevent injection.
 - **Bounded thread pool** (10 threads max) prevents DoS against the plugin's HTTP server.
 - **Private IP validation** on the Discord bot prevents SSRF.
+- **DNS rebinding protection** — Blocks known rebinding domains (nip.io, xip.io, sslip.io, lvh.me, localtest.me).
 - **Environment variable credential management** — All credentials are loaded from environment variables, not hardcoded.
+- **Concurrent-safe design** — All shared state uses `ConcurrentHashMap`, `volatile`, and `synchronized` blocks. Bukkit API calls from async contexts are wrapped in `callSyncMethod`.
 
 Report vulnerabilities at https://github.com/muzlik-gm/MC-DC-Whitelister/security/advisories/new
+
+## Development
+
+### Discord Bot
+
+```bash
+cd discord-bot
+
+# Install dependencies
+npm install
+
+# Lint
+npm run lint
+
+# Test
+npm test
+
+# Test with coverage
+npm run test:coverage
+```
+
+### Minecraft Plugin
+
+```bash
+cd minecraft-plugin
+
+# Build
+mvn clean package -DskipTests
+
+# Build with tests
+mvn clean package
+```
+
+The plugin requires Paper 1.20+ API and optionally LuckPerms for role sync.
 
 ## License
 
