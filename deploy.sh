@@ -10,7 +10,7 @@ LOG_FILE="deploy.log"
 BACKUP_DIR="backup"
 ROLLBACK_FILE="${BACKUP_DIR}/rollback-info"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-REPO_DIR="~"
+REPO_DIR="$HOME"
 
 # Colors for output
 RED='\033[0;31m'

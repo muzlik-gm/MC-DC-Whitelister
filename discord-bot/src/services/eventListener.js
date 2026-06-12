@@ -1,4 +1,4 @@
-const config = require('../config');
+const loadConfig = require('../config');
 const { EmbedBuilder } = require('discord.js');
 
 class EventListener {
@@ -6,6 +6,7 @@ class EventListener {
     this.bot = bot;
     this.commandHandler = commandHandler;
     this.logger = logger;
+    this.config = loadConfig();
   }
 
   async registerGuildCommands(guildId) {
@@ -15,9 +16,9 @@ class EventListener {
     }
 
     const { REST, Routes } = require('discord.js');
-    const rest = new REST({ version: '10' }).setToken(config.token);
+    const rest = new REST({ version: '10' }).setToken(this.config.token);
     try {
-      const existing = await rest.get(Routes.applicationGuildCommands(config.clientId, guildId));
+      const existing = await rest.get(Routes.applicationGuildCommands(this.config.clientId, guildId));
       const seen = new Set();
 
       for (const cmd of commands) {
@@ -28,20 +29,20 @@ class EventListener {
           const stripMeta = (c) => Object.fromEntries(Object.keys(cmdMeta).filter(f => c[f] != null).map(f => [f, c[f]]));
 
           if (JSON.stringify(stripMeta(match)) !== JSON.stringify(cmd)) {
-            await rest.patch(Routes.applicationGuildCommand(config.clientId, guildId, match.id), { body: cmd });
+            await rest.patch(Routes.applicationGuildCommand(this.config.clientId, guildId, match.id), { body: cmd });
           }
         }
       }
 
       for (const e of existing) {
         if (!seen.has(e.id)) {
-          await rest.delete(Routes.applicationGuildCommand(config.clientId, guildId, e.id));
+          await rest.delete(Routes.applicationGuildCommand(this.config.clientId, guildId, e.id));
         }
       }
 
       const newCmds = commands.filter(c => !existing.find(e => e.name === c.name));
       for (const cmd of newCmds) {
-        await rest.post(Routes.applicationGuildCommands(config.clientId, guildId), { body: cmd });
+        await rest.post(Routes.applicationGuildCommands(this.config.clientId, guildId), { body: cmd });
       }
 
       this.logger.info('EventListener', `Synced ${commands.length} commands for guild ${guildId} (${newCmds.length} new, ${existing.length - seen.size} removed)`);
@@ -88,32 +89,37 @@ class EventListener {
       }
     });
 
+    this.bot.on('messageCreate', (message) => {
+      if (message.author.bot) return;
+      try {
+        const { handleMessage } = require('../prefix');
+        handleMessage(message);
+      } catch (err) {
+        this.logger.error('EventListener', 'Prefix message handler error', err);
+      }
+    });
+
     this.bot.on('guildMemberAdd', async (member) => {
       try {
         const onboarding = require('../database/onboarding');
-        const config = onboarding.getConfig(member.guild.id);
-        if (!config || !config.enabled) return;
+        const onboardingConfig = onboarding.getConfig(member.guild.id);
+        if (!onboardingConfig || !onboardingConfig.enabled) return;
 
-        if (config.auto_role_id) {
-          const role = member.guild.roles.cache.get(config.auto_role_id);
+        if (onboardingConfig.auto_role_id) {
+          const role = member.guild.roles.cache.get(onboardingConfig.auto_role_id);
           if (role) await member.roles.add(role).catch(() => {});
         }
 
-        if (config.welcome_channel_id) {
-          const channel = member.guild.channels.cache.get(config.welcome_channel_id);
+        if (onboardingConfig.welcome_channel_id) {
+          const channel = member.guild.channels.cache.get(onboardingConfig.welcome_channel_id);
           if (channel) {
-            const msg = config.welcome_message || 'Welcome {user}!';
+            const msg = onboardingConfig.welcome_message || 'Welcome {user}!';
             await channel.send(msg.replace('{user}', `<@${member.id}>`).replace('{server}', member.guild.name)).catch(() => {});
           }
         }
       } catch (err) {
         this.logger.error('EventListener', 'Onboarding guildMemberAdd handler error', err);
       }
-    });
-
-    this.bot.on('messageCreate', (message) => {
-      const { handleMessage } = require('../prefix');
-      handleMessage(message);
     });
 
     this.bot.on('interactionCreate', async interaction => {
@@ -131,6 +137,7 @@ class EventListener {
               }).catch(() => {});
             }
           }
+          return;
         }
 
         if (interaction.customId === 'help_category') {

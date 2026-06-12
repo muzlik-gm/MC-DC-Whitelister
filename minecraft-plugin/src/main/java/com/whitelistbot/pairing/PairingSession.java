@@ -7,8 +7,8 @@ public class PairingSession {
     private final int port;
     private final String apiKey;
     private final long createdAt;
-    private boolean used;
-    private String claimedBy;
+    private volatile boolean used;
+    private volatile String claimedBy;
 
     public PairingSession(String code, String host, int port, String apiKey) {
         this.code = code;

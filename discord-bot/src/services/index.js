@@ -3,4 +3,5 @@ module.exports = {
   ApiClient: require('./apiClient'),
   CleanupService: require('./cleanupService'),
   EventListener: require('./eventListener'),
+  TunnelServer: require('./tunnelServer'),
 };

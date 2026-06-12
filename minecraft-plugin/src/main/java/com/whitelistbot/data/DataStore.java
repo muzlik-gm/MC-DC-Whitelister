@@ -5,9 +5,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DataStore {
 
@@ -15,9 +15,9 @@ public class DataStore {
     private final File file;
     private final YamlConfiguration data;
 
-    private final Map<UUID, String> playerIps = new HashMap<>();
-    private final Map<UUID, Long> lastSeen = new HashMap<>();
-    private final Map<UUID, Long> linkTimestamps = new HashMap<>();
+    private final Map<UUID, String> playerIps = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastSeen = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> linkTimestamps = new ConcurrentHashMap<>();
     private long lastSave = 0;
     private static final long SAVE_INTERVAL = 5000;
 

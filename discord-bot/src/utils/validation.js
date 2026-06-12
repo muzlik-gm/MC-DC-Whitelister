@@ -3,12 +3,31 @@ const USERNAME_RE = /^[a-zA-Z0-9_]{3,16}$/;
 // RFC 1918, loopback, link-local, and private network ranges
 const PRIVATE_IP_RE = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.|::1|fc00:|fe80:)/i;
 
+// Known DNS rebinding / SSRF bypass domains
+const SSRF_DOMAINS = /\.(nip\.io|xip\.io|sslip\.io|lvh\.me|localtest\.me)$/i;
+
+// Dotted IPv4 pattern (e.g., "192.168.1.1")
+const DOTTED_IP_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+
 function isValidMinecraftUsername(name) {
   return USERNAME_RE.test(name);
 }
 
 function isValidHost(host) {
-  return /^[a-zA-Z0-9.-]+$/.test(host) && host.length <= 255;
+  if (typeof host !== 'string') return false;
+  if (host.length > 255) return false;
+  // Reject leading/trailing dots, consecutive dots
+  if (host.startsWith('.') || host.endsWith('.')) return false;
+  if (host.includes('..')) return false;
+  // Reject bare numerical formats that resolve to IPs
+  if (/^\d+$/.test(host) || /^0x/i.test(host)) return false;
+  // Reject octal/hex IP formats (e.g., "0177.0.0.1" or "0x7f.0.0.1")
+  if (DOTTED_IP_RE.test(host)) {
+    const octets = host.split('.').map(Number);
+    if (octets.some(o => o < 0 || o > 255)) return false;
+    if (/^0\d/.test(host)) return false; // leading zeros = octal interpretation
+  }
+  return /^[a-zA-Z0-9.-]+$/.test(host);
 }
 
 function isValidPort(port) {
@@ -17,7 +36,10 @@ function isValidPort(port) {
 }
 
 function isPrivateIp(host) {
-  return PRIVATE_IP_RE.test(host);
+  if (PRIVATE_IP_RE.test(host)) return true;
+  if (host.toLowerCase() === 'localhost') return true;
+  if (SSRF_DOMAINS.test(host)) return true;
+  return false;
 }
 
 module.exports = { isValidMinecraftUsername, isValidHost, isValidPort, isPrivateIp };

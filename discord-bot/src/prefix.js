@@ -224,7 +224,7 @@ const COMMAND_META = {
   },
   notes: {
     options: [
-      { name: 'sub', named: false },
+      { name: 'action', named: false },
       { name: 'username', named: false },
       { name: 'content', named: true },
       { name: 'id', named: true },
@@ -237,7 +237,7 @@ const COMMAND_META = {
   },
   tempwhitelist: {
     options: [
-      { name: 'sub', named: false },
+      { name: 'action', named: false },
       { name: 'username', named: false },
       { name: 'duration', named: true },
     ]
@@ -287,6 +287,7 @@ const COMMAND_META = {
 function createContext(message, commandName, options) {
   const ctx = {
     _replyMsg: null,
+    commandName,
     options,
     userId: message.author.id,
     userTag: message.author.tag,
@@ -318,7 +319,7 @@ function createContext(message, commandName, options) {
         try {
           const editData = {};
           if (data.content) editData.content = data.content;
-          if (data.embeds) { editData.content = null; editData.embeds = data.embeds; }
+          if (data.embeds && data.embeds.length > 0) { editData.content = null; editData.embeds = data.embeds; }
           if (data.components) editData.components = data.components;
           await ctx._replyMsg.edit(editData);
           return;

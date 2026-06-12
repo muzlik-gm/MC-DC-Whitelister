@@ -26,9 +26,9 @@ describe('Command Handler Tests', () => {
     commandHandler = new CommandHandler(mockBot, mockConfig, mockLogger);
   });
 
-  test('should register bot handlers on construction', () => {
-    expect(mockBot.on).toHaveBeenCalledWith('messageCreate', expect.any(Function));
-    expect(mockBot.on).toHaveBeenCalledWith('error', expect.any(Function));
+  test('should not register messageCreate handler on construction', () => {
+    const messageCreateCalls = mockBot.on.mock.calls.filter(c => c[0] === 'messageCreate');
+    expect(messageCreateCalls.length).toBe(0);
   });
 
   test('should handle bot error', () => {

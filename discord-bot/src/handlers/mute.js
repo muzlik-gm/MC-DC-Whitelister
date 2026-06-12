@@ -10,9 +10,7 @@ async function muteHandler(ctx) {
     });
   }
 
-  const action = ctx.options.get('action') || 'mute';
-
-  if (action === 'remove') return handleUnmute(ctx);
+  if (ctx.options.get('remove') || ctx.options.get('action') === 'remove') return handleUnmute(ctx);
   return handleMute(ctx);
 }
 

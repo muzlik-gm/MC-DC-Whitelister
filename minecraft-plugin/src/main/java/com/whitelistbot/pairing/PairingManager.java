@@ -12,30 +12,36 @@ public class PairingManager {
 
     private final Map<String, PairingSession> sessions = new ConcurrentHashMap<>();
 
-    public String createSession(String host, int port, String apiKey) {
+    public synchronized String createSession(String host, int port, String apiKey) {
         String code = generateCode();
         sessions.put(code, new PairingSession(code, host, port, apiKey));
         return code;
     }
 
-    public PairingSession validateAndClaim(String code) {
+    public synchronized PairingSession peekSession(String code) {
+        PairingSession session = sessions.get(code);
+        if (session == null || !session.isValid()) return null;
+        return session;
+    }
+
+    public synchronized PairingSession validateAndClaim(String code) {
         PairingSession session = sessions.get(code);
         if (session == null || !session.isValid()) return null;
         session.markUsed();
         return session;
     }
 
-    public PairingSession getSession(String code) {
+    public synchronized PairingSession getSession(String code) {
         return sessions.get(code);
     }
 
-    public boolean registerRemoteCode(String code) {
+    public synchronized boolean registerRemoteCode(String code) {
         if (sessions.containsKey(code)) return false;
         sessions.put(code, new PairingSession(code, null, 0, null));
         return true;
     }
 
-    public void claimRemoteCode(String code, String claimedBy) {
+    public synchronized void claimRemoteCode(String code, String claimedBy) {
         PairingSession session = sessions.get(code);
         if (session != null) {
             session.setClaimedBy(claimedBy);

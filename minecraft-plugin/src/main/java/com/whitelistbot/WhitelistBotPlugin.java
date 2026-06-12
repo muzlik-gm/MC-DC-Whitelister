@@ -15,6 +15,7 @@ import com.whitelistbot.feature.rolesync.RoleSyncFeature;
 import com.whitelistbot.feature.whitelist.WhitelistFeature;
 import com.whitelistbot.listener.AntiAltListener;
 import com.whitelistbot.pairing.PairingManager;
+import com.whitelistbot.tunnel.TunnelClient;
 import com.whitelistbot.whitelist.WhitelistManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -30,6 +31,7 @@ public class WhitelistBotPlugin extends JavaPlugin {
     private FeatureManager featureManager;
     private ApiServer apiServer;
     private DataStore dataStore;
+    private TunnelClient tunnelClient;
     private boolean apiServerRunning;
 
     public static WhitelistBotPlugin getInstance() {
@@ -71,6 +73,14 @@ public class WhitelistBotPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new AntiAltListener(this), this);
 
+        String tunnelHost = getConfig().getString("tunnel.host", "");
+        int tunnelPort = getConfig().getInt("tunnel.port", 9000);
+        if (!tunnelHost.isEmpty()) {
+            tunnelClient = new TunnelClient(this, tunnelHost, tunnelPort, configManager.getApiKey());
+            tunnelClient.connect();
+            getLogger().info("Tunnel client connecting to " + tunnelHost + ":" + tunnelPort);
+        }
+
         WhitelistBotCommand cmd = new WhitelistBotCommand(this, configManager, pairingManager, dataStore);
         getCommand("whitelistbot").setExecutor(cmd);
         getCommand("whitelistbot").setTabCompleter(cmd);
@@ -92,6 +102,7 @@ public class WhitelistBotPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (featureManager != null) featureManager.disableAll();
+        if (tunnelClient != null) tunnelClient.disconnect();
         if (apiServer != null) apiServer.stop();
         if (dataStore != null) dataStore.saveNow();
         apiServerRunning = false;

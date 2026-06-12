@@ -49,7 +49,7 @@ async function pair(ctx) {
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     const res = await fetch(`http://${ip}:${port}/api/pair/challenge`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': '' },
       body: JSON.stringify({ code }),
       signal: controller.signal
     });

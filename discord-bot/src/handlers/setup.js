@@ -1,6 +1,6 @@
 const guilds = require('../database/guilds');
 const MinecraftApi = require('../services/MinecraftApi');
-const { isValidHost, isValidPort } = require('../utils/validation');
+const { isValidHost, isValidPort, isPrivateIp } = require('../utils/validation');
 const { EmbedBuilder } = require('discord.js');
 
 async function setup(ctx) {
@@ -15,6 +15,10 @@ async function setup(ctx) {
 
   if (!isValidPort(port)) {
     return ctx.reply({ embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('Port must be between 1 and 65535.')] });
+  }
+
+  if (isPrivateIp(host)) {
+    return ctx.reply({ embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('Cannot connect to private/internal IP addresses. Use the external hostname or IP.')] });
   }
 
   await ctx.deferReply();

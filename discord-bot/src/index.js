@@ -44,6 +44,12 @@ async function initialize() {
     const eventListener = new services.EventListener(client, commandHandler, logger);
     eventListener.start();
 
+    const tunnelPort = parseInt(process.env.TUNNEL_PORT || '9000', 10);
+    const tunnelServer = new services.TunnelServer(tunnelPort, logger);
+    tunnelServer.start();
+    const tunnel = require('./services/tunnel');
+    tunnel.setTunnel(tunnelServer);
+
     logger.info('Bot', 'All services initialized successfully');
   } catch (err) {
     logger.error('Bot', 'Failed to initialize services', err);
@@ -66,4 +72,7 @@ async function initialize() {
   });
 }
 
-initialize();
+initialize().catch(err => {
+  logger.error('Bot', 'Unhandled error in initialize()', err);
+  process.exit(1);
+});

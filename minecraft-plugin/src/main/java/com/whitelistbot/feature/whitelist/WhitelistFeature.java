@@ -17,6 +17,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class WhitelistFeature implements Feature {
@@ -170,9 +171,12 @@ public class WhitelistFeature implements Feature {
 
                     boolean added = whitelist.addPlayer(player);
                     if (added) {
-                        OfflinePlayer off = Bukkit.getOfflinePlayer(player);
-                        dataStore.setLinkTimestamp(off.getUniqueId());
-                        plugin.getLogger().info("Whitelisted: " + player);
+                        Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                            OfflinePlayer off = Bukkit.getOfflinePlayer(player);
+                            dataStore.setLinkTimestamp(off.getUniqueId());
+                            plugin.getLogger().info("Whitelisted: " + player);
+                            return null;
+                        }).get(10, TimeUnit.SECONDS);
                         sendSuccess(exchange, player + " has been whitelisted");
                     } else {
                         sendError(exchange, 409, player + " is already whitelisted");

@@ -8,6 +8,7 @@ import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.feature.Feature;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -16,12 +17,15 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class ModerationFeature implements Feature, Listener {
 
     private final Gson gson = new Gson();
-    private final Map<UUID, MuteEntry> mutedPlayers = new HashMap<>();
+    private final Map<UUID, MuteEntry> mutedPlayers = new ConcurrentHashMap<>();
     private WhitelistBotPlugin plugin;
     private ConfigManager config;
 
@@ -151,11 +155,14 @@ public class ModerationFeature implements Feature, Listener {
                     String player = req.get("player").getAsString();
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
-                    Bukkit.getBanList(org.bukkit.BanList.Type.NAME).addBan(player, reason, (Date) null, "Discord Bot");
-                    Player online = Bukkit.getPlayerExact(player);
-                    if (online != null) {
-                        online.kickPlayer("Banned: " + reason);
-                    }
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        Bukkit.getBanList(org.bukkit.BanList.Type.NAME).addBan(player, reason, (Date) null, "Discord Bot");
+                        Player online = Bukkit.getPlayerExact(player);
+                        if (online != null) {
+                            online.kickPlayer("Banned: " + reason);
+                        }
+                        return null;
+                    }).get(10, TimeUnit.SECONDS);
 
                     plugin.getLogger().info("Banned: " + player + " \u2014 " + reason);
 
@@ -200,13 +207,18 @@ public class ModerationFeature implements Feature, Listener {
                     String player = req.get("player").getAsString();
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
-                    Player online = Bukkit.getPlayerExact(player);
-                    if (online == null) {
+                    boolean kicked = Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        Player online = Bukkit.getPlayerExact(player);
+                        if (online == null) return false;
+                        online.kickPlayer("Kicked: " + reason);
+                        return true;
+                    }).get(10, TimeUnit.SECONDS);
+
+                    if (!kicked) {
                         sendError(exchange, 404, player + " is not online");
                         return;
                     }
 
-                    online.kickPlayer("Kicked: " + reason);
                     plugin.getLogger().info("Kicked: " + player + " \u2014 " + reason);
 
                     JsonObject res = new JsonObject();
@@ -250,10 +262,13 @@ public class ModerationFeature implements Feature, Listener {
                     String player = req.get("player").getAsString();
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
-                    Player online = Bukkit.getPlayerExact(player);
-                    if (online != null) {
-                        online.sendMessage("§e[Warning] §f" + reason);
-                    }
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        Player online = Bukkit.getPlayerExact(player);
+                        if (online != null) {
+                            online.sendMessage("§e[Warning] §f" + reason);
+                        }
+                        return null;
+                    }).get(10, TimeUnit.SECONDS);
 
                     plugin.getLogger().info("Warned: " + player + " \u2014 " + reason);
 
@@ -299,12 +314,25 @@ public class ModerationFeature implements Feature, Listener {
                     int duration = req.has("duration") ? req.get("duration").getAsInt() : 30;
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
-                    Player online = Bukkit.getPlayerExact(player);
-                    if (online != null) {
-                        mutedPlayers.put(online.getUniqueId(), new MuteEntry(System.currentTimeMillis() + (duration * 60 * 1000L), reason));
-                        online.sendMessage("§cYou have been muted for " + duration + " minute(s). Reason: " + reason);
-                    } else {
-                        Bukkit.getOfflinePlayer(player).getUniqueId();
+                    if (duration <= 0) {
+                        sendError(exchange, 400, "Duration must be positive");
+                        return;
+                    }
+
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        Player online = Bukkit.getPlayerExact(player);
+                        if (online != null) {
+                            mutedPlayers.put(online.getUniqueId(), new MuteEntry(System.currentTimeMillis() + (duration * 60 * 1000L), reason));
+                            online.sendMessage("§cYou have been muted for " + duration + " minute(s). Reason: " + reason);
+                        }
+                        return null;
+                    }).get(10, TimeUnit.SECONDS);
+
+                    boolean wasOnline = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getPlayerExact(player) != null).get(10, TimeUnit.SECONDS);
+                    if (!wasOnline) {
+                        CompletableFuture<OfflinePlayer> future = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(player));
+                        OfflinePlayer off = future.get(10, TimeUnit.SECONDS);
+                        mutedPlayers.put(off.getUniqueId(), new MuteEntry(System.currentTimeMillis() + (duration * 60 * 1000L), reason));
                     }
 
                     plugin.getLogger().info("Muted: " + player + " \u2014 " + duration + "m \u2014 " + reason);
@@ -349,11 +377,14 @@ public class ModerationFeature implements Feature, Listener {
 
                     String player = req.get("player").getAsString();
 
-                    Player online = Bukkit.getPlayerExact(player);
-                    if (online != null) {
-                        mutedPlayers.remove(online.getUniqueId());
-                        online.sendMessage("§aYou have been unmuted.");
-                    }
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        Player online = Bukkit.getPlayerExact(player);
+                        if (online != null) {
+                            mutedPlayers.remove(online.getUniqueId());
+                            online.sendMessage("§aYou have been unmuted.");
+                        }
+                        return null;
+                    }).get(10, TimeUnit.SECONDS);
 
                     plugin.getLogger().info("Unmuted: " + player);
 

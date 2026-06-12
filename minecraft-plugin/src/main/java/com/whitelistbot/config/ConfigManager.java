@@ -164,14 +164,16 @@ public class ConfigManager {
 
         // 3. Try to detect from network interfaces
         try {
-            java.net.NetworkInterface ni = java.net.NetworkInterface.getByName("eth0");
-            if (ni != null) {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces = java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface ni = interfaces.nextElement();
+                if (ni.isLoopback() || !ni.isUp()) continue;
                 java.util.Enumeration<java.net.InetAddress> addrs = ni.getInetAddresses();
                 while (addrs.hasMoreElements()) {
                     java.net.InetAddress addr = addrs.nextElement();
                     if (!addr.isLoopbackAddress() && addr instanceof java.net.Inet4Address) {
                         String ip = addr.getHostAddress();
-                        plugin.getLogger().info("Detected external host from eth0: " + ip);
+                        plugin.getLogger().info("Detected external host from " + ni.getName() + ": " + ip);
                         return ip;
                     }
                 }

@@ -114,12 +114,18 @@ public class EconomyFeature implements Feature {
     }
 
     private double getPlayerBalance(String playerName) throws Exception {
-        OfflinePlayer player = Bukkit.getOfflinePlayer(playerName);
+        if (playerName == null || !playerName.matches("[a-zA-Z0-9_]{3,16}")) {
+            throw new IllegalArgumentException("Invalid player name");
+        }
+        OfflinePlayer player = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(playerName)).get(10, TimeUnit.SECONDS);
         return (double) economy.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(economy, player);
     }
 
     private void givePlayerMoney(String playerName, double amount) throws Exception {
-        OfflinePlayer player = Bukkit.getOfflinePlayer(playerName);
+        if (playerName == null || !playerName.matches("[a-zA-Z0-9_]{3,16}")) {
+            throw new IllegalArgumentException("Invalid player name");
+        }
+        OfflinePlayer player = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(playerName)).get(10, TimeUnit.SECONDS);
         economy.getClass().getMethod("depositPlayer", OfflinePlayer.class, double.class).invoke(economy, player, amount);
     }
 
@@ -205,6 +211,11 @@ public class EconomyFeature implements Feature {
 
                     String player = req.get("player").getAsString();
                     double amount = req.get("amount").getAsDouble();
+
+                    if (!Double.isFinite(amount) || amount <= 0) {
+                        sendError(exchange, 400, "'amount' must be a positive finite number");
+                        return;
+                    }
 
                     givePlayerMoney(player, amount);
 

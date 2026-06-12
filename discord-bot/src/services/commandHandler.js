@@ -1,5 +1,3 @@
-const prefix = require('../prefix');
-
 class CommandHandler {
   constructor(bot, config, logger) {
     this.bot = bot;
@@ -8,7 +6,6 @@ class CommandHandler {
     this.commandsPath = require('path').join(__dirname, '..', 'commands');
     this.requireDir = require('../utils/requireDir');
     this.commands = new Map();
-    this.registerBotHandlers();
   }
 
   async loadCommands() {
@@ -28,17 +25,8 @@ class CommandHandler {
     }
   }
 
-  registerBotHandlers() {
-    this.bot.on('messageCreate', this.handleMessage.bind(this));
-    this.bot.on('error', this.handleError.bind(this));
-  }
-
   handleError(error) {
     this.logger.error('CommandHandler', 'Bot error', error);
-  }
-
-  handleMessage(message) {
-    prefix.handleMessage(message);
   }
 
   start() {

@@ -35,7 +35,13 @@ async function whitelist(ctx) {
     }
   }
 
-  const username = ctx.options.get('username').trim();
+  const raw = ctx.options.get('username');
+  if (!raw) {
+    return ctx.reply({
+      embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('Missing Minecraft username. Usage: `>whitelist <username>`.')]
+    });
+  }
+  const username = raw.trim();
   if (!isValidMinecraftUsername(username)) {
     return ctx.reply({
       embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('Invalid Minecraft username — must be 3–16 characters (letters, numbers, underscores).')]

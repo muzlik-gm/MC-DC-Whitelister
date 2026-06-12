@@ -1,13 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
+const PLACEHOLDER_RE = /^\$\{[A-Z_]+\}$/;
+
+function isPlaceholder(val) {
+  return typeof val === 'string' && PLACEHOLDER_RE.test(val);
+}
+
 function loadConfig() {
   const env = process.env;
 
   const token = env.DISCORD_BOT_TOKEN;
   const clientId = env.DISCORD_CLIENT_ID;
 
-  if (token && clientId) {
+  if (token && !isPlaceholder(token) && clientId && !isPlaceholder(clientId)) {
     return { token, clientId };
   }
 
@@ -17,7 +23,7 @@ function loadConfig() {
       require('dotenv').config({ path: envPath });
       const token = process.env.DISCORD_BOT_TOKEN;
       const clientId = process.env.DISCORD_CLIENT_ID;
-      if (token && clientId) {
+      if (token && !isPlaceholder(token) && clientId && !isPlaceholder(clientId)) {
         return { token, clientId };
       }
     } catch (err) {
@@ -29,7 +35,7 @@ function loadConfig() {
   if (fs.existsSync(cfgPath)) {
     try {
       const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-      if (cfg.token && cfg.clientId) {
+      if (cfg.token && !isPlaceholder(cfg.token) && cfg.clientId && !isPlaceholder(cfg.clientId)) {
         return { token: cfg.token, clientId: cfg.clientId };
       }
     } catch (err) {

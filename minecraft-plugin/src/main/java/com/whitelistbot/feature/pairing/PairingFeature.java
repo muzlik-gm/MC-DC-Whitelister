@@ -8,11 +8,13 @@ import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.feature.Feature;
 import com.whitelistbot.pairing.PairingManager;
 import com.whitelistbot.pairing.PairingSession;
+import org.bukkit.Bukkit;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class PairingFeature implements Feature {
@@ -94,7 +96,7 @@ public class PairingFeature implements Feature {
                     }
 
                     String code = req.get("code").getAsString().toUpperCase();
-                    PairingSession session = pairing.validateAndClaim(code);
+                    PairingSession session = pairing.peekSession(code);
 
                     if (session == null) {
                         fail(exchange, 404, "Invalid or expired pairing code");
@@ -106,8 +108,17 @@ public class PairingFeature implements Feature {
                         return;
                     }
 
+                    session = pairing.validateAndClaim(code);
+                    if (session == null) {
+                        fail(exchange, 404, "Invalid or expired pairing code");
+                        return;
+                    }
+
                     String newApiKey = plugin.getConfigManager().rotateApiKey();
-                    plugin.saveConfig();
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.saveConfig();
+                        return null;
+                    }).get(10, TimeUnit.SECONDS);
 
                     String host = session.getHost() != null ? session.getHost() : plugin.getConfigManager().getHost();
                     int port = session.getPort() != 0 ? session.getPort() : plugin.getConfigManager().getPort();

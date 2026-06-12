@@ -13,8 +13,8 @@ import org.bukkit.entity.Player;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class CommunityFeature implements Feature {
@@ -122,6 +122,17 @@ public class CommunityFeature implements Feature {
                     String player = req.get("player").getAsString();
                     String command = req.get("command").getAsString();
 
+                    if (command.length() > 256) {
+                        sendError(exchange, 400, "Command too long (max 256 chars)");
+                        return;
+                    }
+
+                    String lower = command.toLowerCase();
+                    if (lower.contains("stop") || lower.contains("restart") || lower.contains("reload") || lower.matches(".*\\brl\\b.*") || lower.contains("op ") || lower.contains("deop ") || lower.contains("kick ") || lower.contains("ban ") || lower.contains("ban-ip") || lower.contains("pardon ") || lower.contains("pardon-ip") || lower.contains("whitelist remove") || lower.contains("whitelist off") || lower.contains("whitelist reload") || lower.contains("minecraft:stop") || lower.contains("minecraft:reload") || lower.contains("plugman") || lower.matches(".*\\bgive\\b.*")) {
+                        sendError(exchange, 403, "Forbidden command");
+                        return;
+                    }
+
                     Bukkit.getScheduler().callSyncMethod(plugin, () ->
                         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", player))
                     );
@@ -159,8 +170,9 @@ public class CommunityFeature implements Feature {
                         return;
                     }
 
+                    Collection<? extends Player> onlinePlayers = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOnlinePlayers()).get(10, TimeUnit.SECONDS);
                     JsonArray players = new JsonArray();
-                    for (Player p : Bukkit.getOnlinePlayers()) {
+                    for (Player p : onlinePlayers) {
                         players.add(p.getName());
                     }
 
@@ -195,15 +207,22 @@ public class CommunityFeature implements Feature {
                         return;
                     }
 
+                    Object[] syncResult = Bukkit.getScheduler().callSyncMethod(plugin, () -> new Object[]{
+                        Bukkit.getOnlinePlayers().toArray(new Player[0]),
+                        Bukkit.getMaxPlayers()
+                    }).get(10, TimeUnit.SECONDS);
+                    Player[] onlinePlayers = (Player[]) syncResult[0];
+                    int maxPlayers = (int) syncResult[1];
+
                     JsonArray players = new JsonArray();
-                    for (Player p : Bukkit.getOnlinePlayers()) {
+                    for (Player p : onlinePlayers) {
                         players.add(p.getName());
                     }
 
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
-                    res.addProperty("count", Bukkit.getOnlinePlayers().size());
-                    res.addProperty("max", Bukkit.getMaxPlayers());
+                    res.addProperty("count", onlinePlayers.length);
+                    res.addProperty("max", maxPlayers);
                     res.add("players", players);
                     sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {

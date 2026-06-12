@@ -42,3 +42,11 @@ milestones:
 # Moderation settings
 # Ban, kick, and warn commands are available via Discord
 # Warnings are stored in the Discord bot's database
+
+# Tunnel settings (reverse WebSocket connection)
+# Set host to the VPS IP/domain to use tunnel mode instead of exposing ports
+# The plugin connects outbound to the VPS, bypassing Pterodactyl port restrictions
+# Leave host empty to use direct HTTP mode
+tunnel:
+  host: "161.118.162.21"
+  port: 9000

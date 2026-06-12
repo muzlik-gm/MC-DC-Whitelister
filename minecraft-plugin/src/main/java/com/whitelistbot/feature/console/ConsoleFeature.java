@@ -119,7 +119,8 @@ public class ConsoleFeature implements Feature {
                         return;
                     }
 
-                    if (command.contains("stop") || command.contains("restart") || command.contains("reload") || command.contains("rl ")) {
+                    String lower = command.toLowerCase();
+                    if (lower.contains("stop") || lower.contains("restart") || lower.contains("reload") || lower.matches(".*\\brl\\b.*")) {
                         sendError(exchange, 403, "Forbidden command");
                         return;
                     }

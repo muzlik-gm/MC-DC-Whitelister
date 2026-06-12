@@ -12,7 +12,7 @@ async function moderationHandler(ctx) {
     });
   }
 
-  const action = ctx.options.get('action');
+  const action = ctx.commandName || ctx.options.get('action');
 
   if (action === 'ban') return handleBan(ctx);
   if (action === 'kick') return handleKick(ctx);
@@ -164,9 +164,8 @@ async function handleWarnings(ctx) {
   }
 
   const existing = whitelistDb.getByMinecraftUsername(ctx.guildId, username);
-  const uuid = existing ? existing.discord_id : username;
-
-  const warnings = moderationDb.getWarnings(ctx.guildId, uuid);
+  const lookupKey = existing ? existing.minecraft_username : username;
+  const warnings = moderationDb.getWarnings(ctx.guildId, lookupKey);
 
   const embed = new EmbedBuilder()
     .setColor(0x3498db)

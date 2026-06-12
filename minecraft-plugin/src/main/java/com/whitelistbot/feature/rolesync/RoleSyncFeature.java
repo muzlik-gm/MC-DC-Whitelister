@@ -13,10 +13,9 @@ import org.bukkit.OfflinePlayer;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class RoleSyncFeature implements Feature {
@@ -107,7 +106,7 @@ public class RoleSyncFeature implements Feature {
                 .getMethod("getUserManager")
                 .invoke(lpInstance);
 
-        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
+        OfflinePlayer offlinePlayer = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(playerName)).get(10, TimeUnit.SECONDS);
         UUID uuid = offlinePlayer.getUniqueId();
 
         Object userFuture = userManager.getClass()
