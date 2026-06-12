@@ -330,8 +330,7 @@ public class ModerationFeature implements Feature, Listener {
 
                     boolean wasOnline = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getPlayerExact(player) != null).get(10, TimeUnit.SECONDS);
                     if (!wasOnline) {
-                        CompletableFuture<OfflinePlayer> future = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(player));
-                        OfflinePlayer off = future.get(10, TimeUnit.SECONDS);
+                        OfflinePlayer off = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(player)).get(10, TimeUnit.SECONDS);
                         mutedPlayers.put(off.getUniqueId(), new MuteEntry(System.currentTimeMillis() + (duration * 60 * 1000L), reason));
                     }
 

@@ -178,9 +178,12 @@ public class TunnelClient {
     }
 
     private static class PendingRequest {
-        final java.util.function.Consumer<JsonObject> resolve;
-        PendingRequest(java.util.function.Consumer<JsonObject> resolve) {
-            this.resolve = resolve;
+        private java.util.function.Consumer<JsonObject> resolver;
+        PendingRequest(java.util.function.Consumer<JsonObject> resolver) {
+            this.resolver = resolver;
+        }
+        void resolve(JsonObject response) {
+            if (resolver != null) resolver.accept(response);
         }
     }
 }
