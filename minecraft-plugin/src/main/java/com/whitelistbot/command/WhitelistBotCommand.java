@@ -166,12 +166,10 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
         int port = config.getPort();
 
         String apiKey = config.getApiKey();
-        if (apiKey == null || apiKey.isEmpty() || apiKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY")) {
-            sender.sendMessage(separator());
-            sender.sendMessage(bad("API key not configured!"));
-            sender.sendMessage(dim("Run ").append(cmd("/wlb pair")).append(dim(" again after the server starts fully.")));
-            sender.sendMessage(separator());
-            return;
+        if (apiKey == null || apiKey.isEmpty()) {
+            apiKey = "pending";
+        } else if (apiKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY")) {
+            apiKey = "pending";
         }
 
         String code = pairing.createSession(host, port, apiKey);
@@ -313,7 +311,9 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
     private void handleStatus(CommandSender sender) {
         String host = config.getHost();
         int port = config.getPort();
-        boolean hasDefaultKey = config.getApiKey().equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY");
+        String currentKey = config.getApiKey();
+        boolean keyIsEmpty = currentKey == null || currentKey.isEmpty() || currentKey.equals("pending");
+        boolean hasDefaultKey = currentKey.equals("CHANGE_ME_TO_A_SECURE_RANDOM_KEY");
 
         sender.sendMessage(separator());
         sender.sendMessage(label("Server Status"));
@@ -331,11 +331,11 @@ public class WhitelistBotCommand implements CommandExecutor, TabCompleter {
         );
         sender.sendMessage(
                 dim("API Key").append(dim(": ")).append(
-                        hasDefaultKey
-                                ? bad("Change in config.yml")
-                                : good("Configured"))
+                        keyIsEmpty ? bad("Not configured. Run /wlb pair")
+                        : hasDefaultKey ? bad("Change in config.yml")
+                        : good("Configured"))
         );
-        if (!hasDefaultKey && plugin.getApiServerRunning()) {
+        if (plugin.getApiServerRunning()) {
             sender.sendMessage(Component.empty());
             sender.sendMessage(good("Ready to pair! Use ").append(cmd("/wlb pair")).append(good(" or run ")).append(cmd(">pair")).append(good(" in Discord.")));
         }

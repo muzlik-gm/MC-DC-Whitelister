@@ -4,7 +4,9 @@
         "Bukkit",
         "gson",
         "Gson",
+        "luckperms",
         "muzlik",
+        "rolesync",
         "wbot",
         "whitelistbot"
     ]

@@ -230,6 +230,18 @@ function getDb() {
     )
   `);
 
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS event_config (
+      guild_id TEXT PRIMARY KEY,
+      default_mc_command TEXT,
+      default_reward_role_id TEXT,
+      default_max_participants INTEGER,
+      notification_channel_id TEXT,
+      auto_announce INTEGER NOT NULL DEFAULT 1,
+      event_role_id TEXT
+    )
+  `);
+
   // Migrate guild_settings — add columns that may not exist on older databases
   const migrateColumns = [
     'ALTER TABLE guild_settings ADD COLUMN log_milestones INTEGER NOT NULL DEFAULT 1',

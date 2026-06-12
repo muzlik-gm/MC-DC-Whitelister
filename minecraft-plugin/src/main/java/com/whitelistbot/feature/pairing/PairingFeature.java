@@ -88,7 +88,7 @@ public class PairingFeature implements Feature {
                         return;
                     }
 
-                    if (session.getClaimedBy() == null) {
+                    if (session.getApiKey() == null && session.getClaimedBy() == null) {
                         fail(exchange, 400, "This code was initiated from Discord. Run /wlb connect " + code + " in Minecraft first.");
                         return;
                     }

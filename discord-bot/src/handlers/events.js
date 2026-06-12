@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const eventsDb = require('../database/events');
+const { startWizard } = require('./eventWizard');
 
 async function eventsHandler(ctx) {
   if (!ctx.guildConfig) {
@@ -22,12 +23,16 @@ async function eventsHandler(ctx) {
 }
 
 async function handleCreate(ctx) {
+  const startsAt = ctx.options.get('starts_at');
+
+  if (!startsAt) {
+    return startWizard(ctx);
+  }
   const name = ctx.options.get('name');
   const description = ctx.options.get('description') || null;
   const mcCommand = ctx.options.get('mc_command') || null;
   const rewardRole = ctx.options.get('reward_role') || null;
   const maxParticipants = ctx.options.get('max_participants') || null;
-  const startsAt = ctx.options.get('starts_at');
 
   const parsed = new Date(startsAt);
   if (isNaN(parsed.getTime())) {

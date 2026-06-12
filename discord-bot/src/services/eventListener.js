@@ -124,6 +124,38 @@ class EventListener {
 
     this.bot.on('interactionCreate', async interaction => {
       if (interaction.isButton() || interaction.isStringSelectMenu()) {
+        if (interaction.customId && interaction.customId.startsWith('ew_')) {
+          try {
+            const { handleInteraction } = require('../handlers/eventWizard');
+            await handleInteraction(interaction);
+          } catch (err) {
+            this.logger.error('EventListener', 'Event wizard interaction error', err);
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('An error occurred.')],
+                flags: 64
+              }).catch(() => {});
+            }
+          }
+          return;
+        }
+
+        if (interaction.customId && interaction.customId.startsWith('es_')) {
+          try {
+            const { handleInteraction } = require('../handlers/eventSetup');
+            await handleInteraction(interaction);
+          } catch (err) {
+            this.logger.error('EventListener', 'Event setup interaction error', err);
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('An error occurred.')],
+                flags: 64
+              }).catch(() => {});
+            }
+          }
+          return;
+        }
+
         if (interaction.customId && interaction.customId.startsWith('config_')) {
           try {
             const handleComponent = require('../handlers/config').handleComponent;
@@ -167,6 +199,40 @@ class EventListener {
         }
 
         return;
+      }
+
+      if (interaction.isModalSubmit()) {
+        if (interaction.customId && interaction.customId.startsWith('ew_')) {
+          try {
+            const { handleInteraction } = require('../handlers/eventWizard');
+            await handleInteraction(interaction);
+          } catch (err) {
+            this.logger.error('EventListener', 'Event wizard modal error', err);
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('An error occurred.')],
+                flags: 64
+              }).catch(() => {});
+            }
+          }
+          return;
+        }
+
+        if (interaction.customId && interaction.customId.startsWith('es_')) {
+          try {
+            const { handleInteraction } = require('../handlers/eventSetup');
+            await handleInteraction(interaction);
+          } catch (err) {
+            this.logger.error('EventListener', 'Event setup modal error', err);
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription('An error occurred.')],
+                flags: 64
+              }).catch(() => {});
+            }
+          }
+          return;
+        }
       }
 
       if (!interaction.isChatInputCommand()) return;

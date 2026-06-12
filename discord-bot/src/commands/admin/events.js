@@ -13,13 +13,13 @@ module.exports = {
         .setDescription('Create a new event')
         .addStringOption(opt =>
           opt.setName('name')
-            .setDescription('Event name')
-            .setRequired(true)
+            .setDescription('Event name (leave empty to enter in the wizard)')
+            .setRequired(false)
             .setMaxLength(100))
         .addStringOption(opt =>
           opt.setName('starts_at')
-            .setDescription('When the event starts (e.g. "2025-12-31 20:00 UTC")')
-            .setRequired(true))
+            .setDescription('When the event starts (e.g. "2025-12-31 20:00 UTC"). Leave empty for the visual wizard.')
+            .setRequired(false))
         .addStringOption(opt =>
           opt.setName('description')
             .setDescription('Event description')
@@ -67,7 +67,10 @@ module.exports = {
         .addIntegerOption(opt =>
           opt.setName('event_id')
             .setDescription('Event ID')
-            .setRequired(true))),
+            .setRequired(true)))
+    .addSubcommand(sub =>
+      sub.setName('setup')
+        .setDescription('Configure event defaults (MC command, roles, etc.)')),
 
   async execute(interaction) {
     const ctx = {
@@ -96,6 +99,9 @@ module.exports = {
       ctx.options.set('minecraft_username', interaction.options.getString('minecraft_username'));
     } else if (sub === 'cancel' || sub === 'delete') {
       ctx.options.set('event_id', interaction.options.getInteger('event_id'));
+    } else if (sub === 'setup') {
+      const { showPanel } = require('../../handlers/eventSetup');
+      return showPanel(interaction);
     }
 
     await handler(ctx);
