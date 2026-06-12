@@ -27,7 +27,8 @@ public class ApiServer {
     }
 
     public void start() throws IOException {
-        InetSocketAddress addr = new InetSocketAddress("0.0.0.0", config.getPort());
+        String bindHost = plugin.getConfig().getString("server.host", "127.0.0.1");
+        InetSocketAddress addr = new InetSocketAddress(bindHost, config.getPort());
         server = HttpServer.create(addr, 0);
         executor = Executors.newFixedThreadPool(10);
         server.setExecutor(executor);
@@ -40,7 +41,7 @@ public class ApiServer {
         }
 
         server.start();
-        plugin.getLogger().info("API server listening on 0.0.0.0:" + config.getPort());
+        plugin.getLogger().info("API server listening on " + bindHost + ":" + config.getPort());
     }
 
     public void stop() {

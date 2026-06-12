@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.feature.Feature;
+import com.whitelistbot.feature.FeatureUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -14,10 +15,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -87,45 +85,6 @@ public class ModerationFeature implements Feature, Listener {
         }
     }
 
-    private boolean authenticate(HttpExchange exchange) {
-        String key = exchange.getRequestHeaders().getFirst("X-API-Key");
-        if (key == null || config.getApiKey() == null) return false;
-        if (key.length() != config.getApiKey().length()) return false;
-        int result = 0;
-        for (int i = 0; i < key.length(); i++) {
-            result |= key.charAt(i) ^ config.getApiKey().charAt(i);
-        }
-        return result == 0;
-    }
-
-    private void sendJson(HttpExchange exchange, int code, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(code, bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(bytes);
-        }
-    }
-
-    private void sendError(HttpExchange exchange, int code, String message) throws IOException {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("success", false);
-        obj.addProperty("error", message);
-        sendJson(exchange, code, gson.toJson(obj));
-    }
-
-    private String readBody(HttpExchange exchange) throws IOException {
-        try (InputStream is = exchange.getRequestBody();
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = is.read(buf)) != -1) {
-                bos.write(buf, 0, n);
-            }
-            return bos.toString(StandardCharsets.UTF_8);
-        }
-    }
-
     private class BanEndpoint implements Endpoint {
         @Override
         public String getPath() {
@@ -136,23 +95,26 @@ public class ModerationFeature implements Feature, Listener {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
-                    String body = readBody(exchange);
-                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player")) {
-                        sendError(exchange, 400, "Missing 'player' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' field");
                         return;
                     }
 
                     String player = req.get("player").getAsString();
+                    if (!FeatureUtils.isValidMinecraftUsername(player)) {
+                        FeatureUtils.sendError(exchange, 400, "Invalid Minecraft username");
+                        return;
+                    }
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
@@ -169,10 +131,10 @@ public class ModerationFeature implements Feature, Listener {
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.addProperty("message", player + " has been banned");
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/ban", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -188,23 +150,26 @@ public class ModerationFeature implements Feature, Listener {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
-                    String body = readBody(exchange);
-                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player")) {
-                        sendError(exchange, 400, "Missing 'player' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' field");
                         return;
                     }
 
                     String player = req.get("player").getAsString();
+                    if (!FeatureUtils.isValidMinecraftUsername(player)) {
+                        FeatureUtils.sendError(exchange, 400, "Invalid Minecraft username");
+                        return;
+                    }
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
                     boolean kicked = Bukkit.getScheduler().callSyncMethod(plugin, () -> {
@@ -215,7 +180,7 @@ public class ModerationFeature implements Feature, Listener {
                     }).get(10, TimeUnit.SECONDS);
 
                     if (!kicked) {
-                        sendError(exchange, 404, player + " is not online");
+                        FeatureUtils.sendError(exchange, 404, player + " is not online");
                         return;
                     }
 
@@ -224,10 +189,10 @@ public class ModerationFeature implements Feature, Listener {
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.addProperty("message", player + " has been kicked");
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/kick", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -243,23 +208,26 @@ public class ModerationFeature implements Feature, Listener {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
-                    String body = readBody(exchange);
-                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player")) {
-                        sendError(exchange, 400, "Missing 'player' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' field");
                         return;
                     }
 
                     String player = req.get("player").getAsString();
+                    if (!FeatureUtils.isValidMinecraftUsername(player)) {
+                        FeatureUtils.sendError(exchange, 400, "Invalid Minecraft username");
+                        return;
+                    }
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
@@ -275,10 +243,10 @@ public class ModerationFeature implements Feature, Listener {
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.addProperty("message", player + " has been warned");
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/warn", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -294,55 +262,63 @@ public class ModerationFeature implements Feature, Listener {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
-                    String body = readBody(exchange);
-                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player")) {
-                        sendError(exchange, 400, "Missing 'player' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' field");
                         return;
                     }
 
                     String player = req.get("player").getAsString();
+                    if (!FeatureUtils.isValidMinecraftUsername(player)) {
+                        FeatureUtils.sendError(exchange, 400, "Invalid Minecraft username");
+                        return;
+                    }
                     int duration = req.has("duration") ? req.get("duration").getAsInt() : 30;
                     String reason = req.has("reason") ? req.get("reason").getAsString() : "No reason provided.";
 
                     if (duration <= 0) {
-                        sendError(exchange, 400, "Duration must be positive");
+                        FeatureUtils.sendError(exchange, 400, "Duration must be positive");
                         return;
                     }
 
+                    // Combined single sync call to avoid race conditions
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
                         Player online = Bukkit.getPlayerExact(player);
+                        UUID uuid;
                         if (online != null) {
-                            mutedPlayers.put(online.getUniqueId(), new MuteEntry(System.currentTimeMillis() + (duration * 60 * 1000L), reason));
+                            uuid = online.getUniqueId();
                             online.sendMessage("§cYou have been muted for " + duration + " minute(s). Reason: " + reason);
+                        } else {
+                            OfflinePlayer off = Bukkit.getOfflinePlayerIfCached(player);
+                            if (off != null) {
+                                uuid = off.getUniqueId();
+                            } else {
+                                return null;
+                            }
                         }
+                        // Use long multiplication to prevent overflow
+                        mutedPlayers.put(uuid, new MuteEntry(System.currentTimeMillis() + (duration * 60L * 1000L), reason));
                         return null;
                     }).get(10, TimeUnit.SECONDS);
-
-                    boolean wasOnline = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getPlayerExact(player) != null).get(10, TimeUnit.SECONDS);
-                    if (!wasOnline) {
-                        OfflinePlayer off = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(player)).get(10, TimeUnit.SECONDS);
-                        mutedPlayers.put(off.getUniqueId(), new MuteEntry(System.currentTimeMillis() + (duration * 60 * 1000L), reason));
-                    }
 
                     plugin.getLogger().info("Muted: " + player + " \u2014 " + duration + "m \u2014 " + reason);
 
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.addProperty("message", player + " has been muted for " + duration + " minute(s)");
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/mute", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -358,23 +334,26 @@ public class ModerationFeature implements Feature, Listener {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
-                    String body = readBody(exchange);
-                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player")) {
-                        sendError(exchange, 400, "Missing 'player' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' field");
                         return;
                     }
 
                     String player = req.get("player").getAsString();
+                    if (!FeatureUtils.isValidMinecraftUsername(player)) {
+                        FeatureUtils.sendError(exchange, 400, "Invalid Minecraft username");
+                        return;
+                    }
 
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
                         Player online = Bukkit.getPlayerExact(player);
@@ -390,10 +369,10 @@ public class ModerationFeature implements Feature, Listener {
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.addProperty("message", player + " has been unmuted");
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/moderation/unmute", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }

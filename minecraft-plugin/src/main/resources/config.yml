@@ -48,5 +48,11 @@ milestones:
 # The plugin connects outbound to the VPS, bypassing Pterodactyl port restrictions
 # Leave host empty to use direct HTTP mode
 tunnel:
+  # Set host to your VPS IP/domain to use tunnel mode instead of exposing ports
+  # The plugin connects outbound to the VPS, bypassing Pterodactyl port restrictions
+  # Leave host empty to use direct HTTP mode
   host: "161.118.162.21"
   port: 9000
+  # Set to true to use WSS (WebSocket Secure) for encrypted tunnel connections
+  # Requires a valid TLS certificate on the VPS tunnel server
+  tls: false

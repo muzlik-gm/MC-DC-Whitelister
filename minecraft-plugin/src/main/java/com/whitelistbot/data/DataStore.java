@@ -84,11 +84,19 @@ public class DataStore {
             data.set("link-times." + e.getKey(), e.getValue());
         }
 
-        try {
-            data.save(file);
-        } catch (IOException ex) {
-            plugin.getLogger().warning("Failed to save data.yml: " + ex.getMessage());
+        IOException lastEx = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                data.save(file);
+                return;
+            } catch (IOException ex) {
+                lastEx = ex;
+                if (attempt < 2) {
+                    try { Thread.sleep(100); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+                }
+            }
         }
+        plugin.getLogger().warning("Failed to save data.yml after 3 attempts: " + lastEx.getMessage());
     }
 
     public void saveNow() {

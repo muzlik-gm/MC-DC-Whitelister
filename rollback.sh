@@ -47,7 +47,7 @@ perform_rollback() {
     
     # Stop the bot
     log "Stopping whitelist-bot service..."
-    systemctl stop whitelist-bot 2>/dev/null || pkill -f "node src/index.js" || warn "Failed to stop bot - continuing..."
+    sudo systemctl stop whitelist-bot 2>/dev/null || pkill -f "node src/index.js" || warn "Failed to stop bot - continuing..."
     
     # Navigate to the backup directory
     cd "${rollback_dir}"
@@ -121,7 +121,7 @@ perform_rollback() {
     
     # Restart the bot
     log "Starting whitelist-bot service..."
-    systemctl start whitelist-bot 2>/dev/null || (
+    sudo systemctl start whitelist-bot 2>/dev/null || (
         cd "${rollback_dir}"
         npm --prefix discord-bot start >> "${LOG_FILE}" 2>&1 &
     )

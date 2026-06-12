@@ -15,9 +15,6 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class TunnelClient {
@@ -25,14 +22,15 @@ public class TunnelClient {
     private final WhitelistBotPlugin plugin;
     private final String wsUrl;
     private final String apiKey;
+    private final boolean useTls;
     private final Gson gson = new Gson();
-    private final ConcurrentHashMap<String, PendingRequest> pending = new ConcurrentHashMap<>();
     private WebSocketClient client;
     private volatile boolean connected;
 
     public TunnelClient(WhitelistBotPlugin plugin, String host, int port, String apiKey) {
         this.plugin = plugin;
-        this.wsUrl = "ws://" + host + ":" + port;
+        this.useTls = plugin.getConfig().getBoolean("tunnel.tls", false);
+        this.wsUrl = (useTls ? "wss://" : "ws://") + host + ":" + port;
         this.apiKey = apiKey;
     }
 
@@ -56,12 +54,6 @@ public class TunnelClient {
                         String type = msg.has("type") ? msg.get("type").getAsString() : "";
                         if ("request".equals(type)) {
                             handleRequest(msg);
-                        } else if ("response".equals(type) && msg.has("id")) {
-                            String id = msg.get("id").getAsString();
-                            PendingRequest p = pending.remove(id);
-                            if (p != null) {
-                                p.resolve(msg);
-                            }
                         }
                     } catch (Exception e) {
                         plugin.getLogger().log(Level.WARNING, "Error processing tunnel message", e);
@@ -72,14 +64,6 @@ public class TunnelClient {
                 public void onClose(int code, String reason, boolean remote) {
                     connected = false;
                     plugin.getLogger().warning("Tunnel disconnected (" + code + "): " + reason);
-                    for (PendingRequest p : pending.values()) {
-                        JsonObject err = new JsonObject();
-                        err.addProperty("type", "response");
-                        err.addProperty("status", 503);
-                        err.add("body", new JsonObject());
-                        p.resolve(err);
-                    }
-                    pending.clear();
                     scheduleReconnect();
                 }
 
@@ -175,15 +159,5 @@ public class TunnelClient {
 
     public boolean isConnected() {
         return connected;
-    }
-
-    private static class PendingRequest {
-        private java.util.function.Consumer<JsonObject> resolver;
-        PendingRequest(java.util.function.Consumer<JsonObject> resolver) {
-            this.resolver = resolver;
-        }
-        void resolve(JsonObject response) {
-            if (resolver != null) resolver.accept(response);
-        }
     }
 }

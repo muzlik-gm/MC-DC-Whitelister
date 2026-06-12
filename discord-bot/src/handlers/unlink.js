@@ -65,7 +65,7 @@ async function unlink(ctx) {
 
     const cooldownMs = COOLDOWN_MAP[cfg.unlink.cooldown];
     if (cooldownMs) {
-      const linkedAt = new Date(link.linked_at + 'Z').getTime();
+      const linkedAt = new Date(link.linked_at + (link.linked_at.endsWith('Z') ? '' : 'Z')).getTime();
       const elapsed = Date.now() - linkedAt;
       if (elapsed < cooldownMs) {
         const remaining = formatRemaining(cooldownMs - elapsed);

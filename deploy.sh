@@ -53,7 +53,7 @@ check_bot_health() {
     fi
     
     # Check if the systemd service is running
-    if systemctl is-active --quiet whitelist-bot; then
+    if sudo systemctl is-active --quiet whitelist-bot; then
         log "Systemd service 'whitelist-bot' is running."
     else
         warn "Systemd service 'whitelist-bot' is not running."
@@ -82,7 +82,7 @@ check_plugin_health() {
         
         # Check if the web server is responding
         # The plugin typically runs on port 25252 for WhitelistBot
-        if curl -s --max-time 5 http://localhost:25252/api/status > /dev/null; then
+        if curl -s --max-time 5 http://localhost:25252/api/health > /dev/null; then
             log "Plugin health check passed - API is responding."
             return 0
         fi
@@ -149,7 +149,7 @@ perform_rollback() {
     
     # Stop the bot
     log "Stopping whitelist-bot service..."
-    systemctl stop whitelist-bot 2>/dev/null || pkill -f "node src/index.js" || true
+    sudo systemctl stop whitelist-bot 2>/dev/null || pkill -f "node src/index.js" || true
     
     # Navigate to the backup directory
     cd "${rollback_dir}"
@@ -223,7 +223,7 @@ perform_rollback() {
     
     # Restart the bot
     log "Starting whitelist-bot service..."
-    systemctl start whitelist-bot 2>/dev/null || (
+    sudo systemctl start whitelist-bot 2>/dev/null || (
         cd "${rollback_dir}"
         npm --prefix discord-bot start >> "${LOG_FILE}" 2>&1 &
     )
@@ -246,7 +246,7 @@ deploy() {
     
     # Pull the latest changes
     log "Pulling latest changes from git..."
-    git reset --hard 2>&1 | tee -a "${LOG_FILE}" || error "Failed to reset git. Aborting."; exit 1
+    git reset --hard 2>&1 | tee -a "${LOG_FILE}" || { error "Failed to reset git. Aborting."; exit 1; }
     git clean -fd 2>&1 | tee -a "${LOG_FILE}" || warn "Failed to clean git - continuing..."
     git pull origin main 2>&1 | tee -a "${LOG_FILE}" || {
         error "Failed to pull from git. Aborting."; perform_rollback; exit 1
@@ -270,7 +270,7 @@ deploy() {
     
     # Stop the bot before deployment
     log "Stopping whitelist-bot service..."
-    systemctl stop whitelist-bot 2>/dev/null || pkill -f "node src/index.js" || warn "Failed to stop bot - continuing..."
+    sudo systemctl stop whitelist-bot 2>/dev/null || pkill -f "node src/index.js" || warn "Failed to stop bot - continuing..."
     
     # Deploy the changes (copy files)
     log "Deploying changes..."
@@ -296,7 +296,7 @@ deploy() {
     
     # Start the bot
     log "Starting whitelist-bot service..."
-    systemctl start whitelist-bot 2>/dev/null || (
+    sudo systemctl start whitelist-bot 2>/dev/null || (
         cd "${REPO_DIR}"
         npm --prefix discord-bot start >> "${LOG_FILE}" 2>&1 &
     )
@@ -314,9 +314,11 @@ deploy() {
         error "Bot health check failed. Aborting."; perform_rollback; exit 1
     fi
     
-    if ! check_plugin_health; then
-        error "Plugin health check failed. Aborting."; perform_rollback; exit 1
-    fi
+    # Skip plugin health check on VPS (plugin runs on a separate MC server)
+    # Uncomment below for self-hosted (direct mode) deployments
+    # if ! check_plugin_health; then
+    #     error "Plugin health check failed. Aborting."; perform_rollback; exit 1
+    # fi
     
     log "Deployment completed successfully."
 }

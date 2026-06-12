@@ -22,6 +22,14 @@ async function initialize() {
     ]
   });
 
+  // Login first — if this fails, nothing else started
+  await client.login(cfg.token).catch(err => {
+    logger.error('Bot', 'Login failed', err);
+    process.exit(1);
+  });
+
+  logger.info('Bot', 'Discord client logged in successfully');
+
   const dbs = {
     guilds: require('./database/guilds'),
     tempWhitelist: require('./database/tempwhitelist'),
@@ -31,6 +39,10 @@ async function initialize() {
     roles: require('./database/roles'),
   };
 
+  // References for cleanup
+  let cleanupInterval;
+  let tunnelServer;
+
   try {
     const commandHandler = new services.CommandHandler(client, cfg, logger);
     await commandHandler.start();
@@ -39,25 +51,30 @@ async function initialize() {
     apiClient.start();
 
     const cleanupService = new services.CleanupService(cfg, logger, client, apiClient, dbs);
-    cleanupService.start();
+    cleanupInterval = cleanupService.start();
 
     const eventListener = new services.EventListener(client, commandHandler, logger);
     eventListener.start();
 
     const tunnelPort = parseInt(process.env.TUNNEL_PORT || '9000', 10);
-    const tunnelServer = new services.TunnelServer(tunnelPort, logger);
-    tunnelServer.start();
+    tunnelServer = new services.TunnelServer(tunnelPort, logger, cfg.apiKey || null);
+    // Set tunnel singleton before starting the server
     const tunnel = require('./services/tunnel');
     tunnel.setTunnel(tunnelServer);
+    tunnelServer.start();
 
     logger.info('Bot', 'All services initialized successfully');
   } catch (err) {
     logger.error('Bot', 'Failed to initialize services', err);
+    if (tunnelServer) tunnelServer.stop();
+    if (cleanupInterval) clearInterval(cleanupInterval);
     process.exit(1);
   }
 
   async function shutdown(signal) {
-    logger.info('Bot', `Received ${signal} — shutting down gracefully`);
+    logger.info('Bot', 'Received ' + signal + ' — shutting down gracefully');
+    if (cleanupInterval) clearInterval(cleanupInterval);
+    if (tunnelServer) tunnelServer.stop();
     client.removeAllListeners();
     await client.destroy().catch(() => {});
     process.exit(0);
@@ -65,11 +82,6 @@ async function initialize() {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
-
-  await client.login(cfg.token).catch(err => {
-    logger.error('Bot', 'Login failed', err);
-    process.exit(1);
-  });
 }
 
 initialize().catch(err => {

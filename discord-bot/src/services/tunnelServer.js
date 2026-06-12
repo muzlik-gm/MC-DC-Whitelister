@@ -2,19 +2,25 @@ const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
 
 class TunnelServer {
-  constructor(port, logger) {
+  constructor(port, logger, expectedApiKey) {
     this.port = port;
     this.logger = logger;
     this.pluginConnection = null;
     this.authenticated = false;
     this.pending = new Map();
     this.wss = null;
+    this.expectedApiKey = expectedApiKey || null;
   }
 
   start() {
     this.wss = new WebSocketServer({ port: this.port });
+
+    const expectedKey = this.expectedApiKey;
+
     this.wss.on('connection', (ws, req) => {
-      this.logger.info('Tunnel', 'Incoming connection from ' + req.socket.remoteAddress);
+      const remoteAddr = req.socket.remoteAddress;
+      this.logger.info('Tunnel', 'Incoming connection from ' + remoteAddr);
+
       if (this.pluginConnection) {
         this.logger.warn('Tunnel', 'Already have a plugin connection — rejecting duplicate');
         ws.close(4000, 'Already connected');
@@ -39,9 +45,30 @@ class TunnelServer {
           return;
         }
         if (msg.type === 'auth' && !this.authenticated) {
+          const providedKey = msg.api_key || '';
+          // If no key configured on bot side, accept any connection (initial pairing)
+          // If key is configured, require matching
+          if (expectedKey) {
+            if (providedKey.length !== expectedKey.length) {
+              this.logger.warn('Tunnel', 'Auth failed — invalid API key from ' + remoteAddr);
+              ws.close(4002, 'Authentication failed');
+              if (this.pluginConnection === ws) this.pluginConnection = null;
+              return;
+            }
+            let match = 0;
+            for (let i = 0; i < expectedKey.length; i++) {
+              match |= providedKey.charCodeAt(i) ^ expectedKey.charCodeAt(i);
+            }
+            if (match !== 0) {
+              this.logger.warn('Tunnel', 'Auth failed — invalid API key from ' + remoteAddr);
+              ws.close(4002, 'Authentication failed');
+              if (this.pluginConnection === ws) this.pluginConnection = null;
+              return;
+            }
+          }
           clearTimeout(authTimer);
           this.authenticated = true;
-          this.logger.info('Tunnel', 'Plugin authenticated');
+          this.logger.info('Tunnel', 'Plugin authenticated (' + remoteAddr + ')');
           return;
         }
         if (!this.authenticated) return;

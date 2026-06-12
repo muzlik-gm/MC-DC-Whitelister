@@ -1,6 +1,7 @@
 const guilds = require('../database/guilds');
 const { isValidHost, isValidPort, isPrivateIp } = require('../utils/validation');
 const { EmbedBuilder } = require('discord.js');
+const tunnel = require('../services/tunnel');
 
 const DEFAULT_PORT = 25252;
 const FETCH_TIMEOUT = 10000;
@@ -24,11 +25,10 @@ async function connect(ctx) {
   const code = String(rawCode).toUpperCase().trim();
   const ip = String(rawIp).trim();
 
-  // Check if already connected
   const existing = guilds.getConfig(ctx.guildId);
   if (existing) {
     return ctx.reply({
-      embeds: [new EmbedBuilder().setColor(0xe67e22).setTitle('Already Connected').setDescription(`This server is already linked to \`${existing.mc_host}:${existing.mc_port}\`.\nUse \`>unlinkserver\` or \`/unlinkserver\` to disconnect first, then try connecting again.`)]
+      embeds: [new EmbedBuilder().setColor(0xe67e22).setTitle('Already Connected').setDescription('This server is already linked to `' + existing.mc_host + ':' + existing.mc_port + '`.\nUse `>unlinkserver` or `/unlinkserver` to disconnect first, then try connecting again.')]
     });
   }
 
@@ -50,10 +50,52 @@ async function connect(ctx) {
 
   await ctx.deferReply();
 
+  // Try tunnel first, fall back to direct HTTP
+  const t = tunnel.getTunnel();
+  if (t && t.pluginConnection && t.authenticated) {
+    try {
+      const result = await t.request('/api/pair/validate', 'POST', { code });
+
+      if (result.ok) {
+        guilds.setConfig(ctx.guildId, {
+          mc_host: ip,
+          mc_port: port,
+          api_key: result.api_key,
+          whitelist_role_id: null
+        });
+
+        const portDisplay = port !== DEFAULT_PORT ? ':' + port : '';
+        const embed = new EmbedBuilder()
+          .setColor(0x2ecc71)
+          .setTitle('Server Connected')
+          .setDescription('This server is now linked to `' + ip + portDisplay + '` via tunnel')
+          .addFields(
+            { name: 'Users', value: 'Use `>whitelist <username>` or `/whitelist <username>` to join the whitelist.', inline: false },
+            { name: 'Restrict', value: 'Use `>setup role:@role` or `/setup role:@role` to limit who can whitelist.', inline: false }
+          );
+
+        return ctx.editReply({ embeds: [embed] });
+      }
+
+      if (result.auth_failure) {
+        return ctx.editReply({
+          embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle('Pairing Failed').setDescription('API key rejected.')]
+        });
+      }
+
+      return ctx.editReply({
+        embeds: [new EmbedBuilder().setColor(0xe74c3c).setDescription(result.error || 'Pairing failed. Check the code is correct and not expired.')]
+      });
+    } catch (err) {
+      // Fall through to direct HTTP
+    }
+  }
+
+  // Direct HTTP fallback
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-    const res = await fetch(`http://${ip}:${port}/api/pair/validate`, {
+    const res = await fetch('http://' + ip + ':' + port + '/api/pair/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': '' },
       body: JSON.stringify({ code }),
@@ -76,11 +118,11 @@ async function connect(ctx) {
       whitelist_role_id: null
     });
 
-    const portDisplay = port !== DEFAULT_PORT ? `:${port}` : '';
+    const portDisplay = port !== DEFAULT_PORT ? ':' + port : '';
     const embed = new EmbedBuilder()
       .setColor(0x2ecc71)
-      .setTitle('✅ Server Connected')
-      .setDescription(`This server is now linked to \`${ip}${portDisplay}\``)
+      .setTitle('Server Connected')
+      .setDescription('This server is now linked to `' + ip + portDisplay + '`')
       .addFields(
         { name: 'Users', value: 'Use `>whitelist <username>` or `/whitelist <username>` to join the whitelist.', inline: false },
         { name: 'Restrict', value: 'Use `>setup role:@role` or `/setup role:@role` to limit who can whitelist.', inline: false }
@@ -90,7 +132,7 @@ async function connect(ctx) {
   } catch (err) {
     const reason = err.name === 'AbortError' ? 'Connection timed out.' : 'Could not reach the plugin.';
     return ctx.editReply({
-      embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle('Connection Failed').setDescription(`${reason}\n• Is the server online?\n• Is the plugin installed and running?\n• Is the port correct? (Default: ${DEFAULT_PORT})`)]
+      embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle('Connection Failed').setDescription(reason + '\n• Is the server online?\n• Is the plugin installed and running?\n• Is the port correct? (Default: ' + DEFAULT_PORT + ')')]
     });
   }
 }

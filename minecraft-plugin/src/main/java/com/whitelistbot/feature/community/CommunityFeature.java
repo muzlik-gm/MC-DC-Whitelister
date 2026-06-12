@@ -8,11 +8,10 @@ import com.sun.net.httpserver.HttpHandler;
 import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.feature.Feature;
+import com.whitelistbot.feature.FeatureUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -22,6 +21,15 @@ public class CommunityFeature implements Feature {
     private final Gson gson = new Gson();
     private WhitelistBotPlugin plugin;
     private ConfigManager config;
+
+    private static final List<String> ALLOWED_COMMANDS = Arrays.asList(
+        "say", "tell", "msg", "w", "me", "help",
+        "effect", "give", "clear", "enchant", "xp",
+        "spawnpoint", "setworldspawn", "tag",
+        "advancement", "recipe", "title", "bossbar",
+        "playsound", "stopsound", "particle",
+        "team", "scoreboard", "worldborder"
+    );
 
     @Override
     public String getName() {
@@ -54,43 +62,14 @@ public class CommunityFeature implements Feature {
         );
     }
 
-    private boolean authenticate(HttpExchange exchange) {
-        String key = exchange.getRequestHeaders().getFirst("X-API-Key");
-        if (key == null || config.getApiKey() == null) return false;
-        if (key.length() != config.getApiKey().length()) return false;
-        int result = 0;
-        for (int i = 0; i < key.length(); i++) {
-            result |= key.charAt(i) ^ config.getApiKey().charAt(i);
+    private boolean isCommandAllowed(String command) {
+        String lower = command.trim().toLowerCase();
+        // Remove %player% placeholder for checking
+        String check = lower.replace("%player%", "").trim();
+        for (String prefix : ALLOWED_COMMANDS) {
+            if (check.startsWith(prefix)) return true;
         }
-        return result == 0;
-    }
-
-    private void sendJson(HttpExchange exchange, int code, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(code, bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(bytes);
-        }
-    }
-
-    private void sendError(HttpExchange exchange, int code, String message) throws IOException {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("success", false);
-        obj.addProperty("error", message);
-        sendJson(exchange, code, gson.toJson(obj));
-    }
-
-    private String readBody(HttpExchange exchange) throws IOException {
-        try (InputStream is = exchange.getRequestBody();
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = is.read(buf)) != -1) {
-                bos.write(buf, 0, n);
-            }
-            return bos.toString(StandardCharsets.UTF_8);
-        }
+        return false;
     }
 
     private class RewardEndpoint implements Endpoint {
@@ -103,49 +82,53 @@ public class CommunityFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
-                    String body = readBody(exchange);
-                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player") || !req.has("command")) {
-                        sendError(exchange, 400, "Missing 'player' or 'command' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' or 'command' field");
                         return;
                     }
 
                     String player = req.get("player").getAsString();
                     String command = req.get("command").getAsString();
 
+                    if (!FeatureUtils.isValidMinecraftUsername(player)) {
+                        FeatureUtils.sendError(exchange, 400, "Invalid Minecraft username");
+                        return;
+                    }
+
                     if (command.length() > 256) {
-                        sendError(exchange, 400, "Command too long (max 256 chars)");
+                        FeatureUtils.sendError(exchange, 400, "Command too long (max 256 chars)");
                         return;
                     }
 
-                    String lower = command.toLowerCase();
-                    if (lower.contains("stop") || lower.contains("restart") || lower.contains("reload") || lower.matches(".*\\brl\\b.*") || lower.contains("op ") || lower.contains("deop ") || lower.contains("kick ") || lower.contains("ban ") || lower.contains("ban-ip") || lower.contains("pardon ") || lower.contains("pardon-ip") || lower.contains("whitelist remove") || lower.contains("whitelist off") || lower.contains("whitelist reload") || lower.contains("minecraft:stop") || lower.contains("minecraft:reload") || lower.contains("plugman") || lower.matches(".*\\bgive\\b.*")) {
-                        sendError(exchange, 403, "Forbidden command");
+                    if (!isCommandAllowed(command)) {
+                        FeatureUtils.sendError(exchange, 403, "Command not in allowed list");
                         return;
                     }
 
+                    String resolved = command.replace("%player%", player);
                     Bukkit.getScheduler().callSyncMethod(plugin, () ->
-                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", player))
-                    );
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), resolved)
+                    ).get(10, TimeUnit.SECONDS);
 
-                    plugin.getLogger().info("[Community Reward] >> " + command.replace("%player%", player));
+                    plugin.getLogger().info("[Community Reward] >> " + resolved);
 
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.addProperty("message", "Command queued for execution");
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/community/reward", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -161,12 +144,12 @@ public class CommunityFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
-                    if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                    if (!"GET".equals(exchange.getRequestMethod())) {
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
@@ -179,10 +162,10 @@ public class CommunityFeature implements Feature {
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.add("players", players);
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/community/players", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -198,12 +181,12 @@ public class CommunityFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"GET".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
@@ -224,10 +207,10 @@ public class CommunityFeature implements Feature {
                     res.addProperty("count", onlinePlayers.length);
                     res.addProperty("max", maxPlayers);
                     res.add("players", players);
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/community/online", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }

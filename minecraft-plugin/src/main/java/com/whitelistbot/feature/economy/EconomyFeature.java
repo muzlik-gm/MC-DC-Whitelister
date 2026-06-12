@@ -7,11 +7,10 @@ import com.sun.net.httpserver.HttpHandler;
 import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.feature.Feature;
+import com.whitelistbot.feature.FeatureUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -75,58 +74,25 @@ public class EconomyFeature implements Feature {
         );
     }
 
-    private boolean authenticate(HttpExchange exchange) {
-        String key = exchange.getRequestHeaders().getFirst("X-API-Key");
-        if (key == null || config.getApiKey() == null) return false;
-        if (key.length() != config.getApiKey().length()) return false;
-        int result = 0;
-        for (int i = 0; i < key.length(); i++) {
-            result |= key.charAt(i) ^ config.getApiKey().charAt(i);
-        }
-        return result == 0;
-    }
-
-    private void sendJson(HttpExchange exchange, int code, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(code, bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(bytes);
-        }
-    }
-
-    private void sendError(HttpExchange exchange, int code, String message) throws IOException {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("success", false);
-        obj.addProperty("error", message);
-        sendJson(exchange, code, gson.toJson(obj));
-    }
-
-    private String readBody(HttpExchange exchange) throws IOException {
-        try (InputStream is = exchange.getRequestBody();
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = is.read(buf)) != -1) {
-                bos.write(buf, 0, n);
-            }
-            return bos.toString(StandardCharsets.UTF_8);
-        }
-    }
-
     private double getPlayerBalance(String playerName) throws Exception {
-        if (playerName == null || !playerName.matches("[a-zA-Z0-9_]{3,16}")) {
+        if (!FeatureUtils.isValidMinecraftUsername(playerName)) {
             throw new IllegalArgumentException("Invalid player name");
         }
-        OfflinePlayer player = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(playerName)).get(10, TimeUnit.SECONDS);
+        OfflinePlayer player = Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+            OfflinePlayer p = Bukkit.getOfflinePlayerIfCached(playerName);
+            return p != null ? p : Bukkit.getOfflinePlayer(playerName);
+        }).get(10, TimeUnit.SECONDS);
         return (double) economy.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(economy, player);
     }
 
     private void givePlayerMoney(String playerName, double amount) throws Exception {
-        if (playerName == null || !playerName.matches("[a-zA-Z0-9_]{3,16}")) {
+        if (!FeatureUtils.isValidMinecraftUsername(playerName)) {
             throw new IllegalArgumentException("Invalid player name");
         }
-        OfflinePlayer player = Bukkit.getScheduler().callSyncMethod(plugin, () -> Bukkit.getOfflinePlayer(playerName)).get(10, TimeUnit.SECONDS);
+        OfflinePlayer player = Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+            OfflinePlayer p = Bukkit.getOfflinePlayerIfCached(playerName);
+            return p != null ? p : Bukkit.getOfflinePlayer(playerName);
+        }).get(10, TimeUnit.SECONDS);
         economy.getClass().getMethod("depositPlayer", OfflinePlayer.class, double.class).invoke(economy, player, amount);
     }
 
@@ -140,17 +106,17 @@ public class EconomyFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"GET".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
                     if (!vaultAvailable) {
-                        sendError(exchange, 501, "Vault is not installed on this server");
+                        FeatureUtils.sendError(exchange, 501, "Vault is not installed on this server");
                         return;
                     }
 
@@ -160,7 +126,7 @@ public class EconomyFeature implements Feature {
                         player = query.substring(7);
                     }
                     if (player == null || player.isEmpty()) {
-                        sendError(exchange, 400, "Missing 'player' query parameter");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' query parameter");
                         return;
                     }
 
@@ -170,10 +136,10 @@ public class EconomyFeature implements Feature {
                     res.addProperty("success", true);
                     res.addProperty("player", player);
                     res.addProperty("balance", balance);
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/economy/balance", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -189,24 +155,23 @@ public class EconomyFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"POST".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
                     if (!vaultAvailable) {
-                        sendError(exchange, 501, "Vault is not installed on this server");
+                        FeatureUtils.sendError(exchange, 501, "Vault is not installed on this server");
                         return;
                     }
 
-                    String body = readBody(exchange);
-                    JsonObject req = gson.fromJson(body, JsonObject.class);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player") || !req.has("amount")) {
-                        sendError(exchange, 400, "Missing 'player' or 'amount' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' or 'amount' field");
                         return;
                     }
 
@@ -214,7 +179,7 @@ public class EconomyFeature implements Feature {
                     double amount = req.get("amount").getAsDouble();
 
                     if (!Double.isFinite(amount) || amount <= 0) {
-                        sendError(exchange, 400, "'amount' must be a positive finite number");
+                        FeatureUtils.sendError(exchange, 400, "'amount' must be a positive finite number");
                         return;
                     }
 
@@ -226,10 +191,10 @@ public class EconomyFeature implements Feature {
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.addProperty("message", "Given " + amount + " to " + player);
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/economy/give", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }

@@ -1,12 +1,10 @@
-const logger = require('../utils/logger');
 const tunnel = require('./tunnel');
+const ApiClient = require('./apiClient');
 
-const FETCH_TIMEOUT = 10000;
-
-class MinecraftApi {
+class MinecraftApi extends ApiClient {
   constructor(guildConfig) {
-    this.base = `http://${guildConfig.mc_host}:${guildConfig.mc_port}`;
-    this.apiKey = guildConfig.api_key;
+    super(require('../utils/logger'));
+    this.guildConfig = guildConfig;
   }
 
   _getTunnel() {
@@ -18,7 +16,7 @@ class MinecraftApi {
     if (t && t.pluginConnection) {
       return t.request(endpoint, 'POST', body);
     }
-    return this._httpPost(endpoint, body);
+    return this.post(endpoint, this.guildConfig, body);
   }
 
   async _get(endpoint) {
@@ -26,76 +24,7 @@ class MinecraftApi {
     if (t && t.pluginConnection) {
       return t.request(endpoint, 'GET', null);
     }
-    return this._httpGet(endpoint);
-  }
-
-  _fetchWithTimeout(url, options = {}) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
-  }
-
-  async _httpPost(endpoint, body) {
-    let res;
-    try {
-      res = await this._fetchWithTimeout(`${this.base}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': this.apiKey,
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-    } catch (err) {
-      logger.error('API', `${endpoint} — network error`, err);
-      return { ok: false, error: 'Could not reach the plugin. Is the server online?', unreachable: true };
-    }
-
-    if (res.status === 401) {
-      logger.warn('API', `${endpoint} — 401 Unauthorized (API key rejected — was it rotated on the MC server?)`);
-      return { ok: false, error: 'API key rejected by the plugin. The key may have been rotated on the Minecraft server.', auth_failure: true };
-    }
-
-    let data;
-    try {
-      data = await res.json();
-    } catch {
-      logger.error('API', `${endpoint} — invalid JSON response (${res.status})`);
-      return { ok: false, error: `Unexpected response from plugin (${res.status})` };
-    }
-
-    if (!res.ok) {
-      const errMsg = data.error || `Server error (${res.status})`;
-      logger.warn('API', `${endpoint} — failed (${res.status}): ${errMsg}`);
-      return { ok: false, error: errMsg };
-    }
-
-    if (data && data.success === false) {
-      const errMsg = data.error || 'Request was not successful';
-      logger.warn('API', `${endpoint} — success:false from plugin: ${errMsg}`);
-      return { ok: false, error: errMsg };
-    }
-
-    return { ok: true, ...data };
-  }
-
-  async _httpGet(endpoint) {
-    try {
-      const res = await this._fetchWithTimeout(`${this.base}${endpoint}`, {
-        method: 'GET',
-        headers: { 'X-API-Key': this.apiKey },
-      });
-      if (res.status === 401) {
-        logger.warn('API', `${endpoint} — 401 Unauthorized`);
-        return { ok: false, error: 'API key rejected by the plugin.', auth_failure: true };
-      }
-      const data = await res.json();
-      if (!res.ok || data.success === false) return { ok: false, error: data.error || 'Request failed' };
-      return { ok: true, ...data };
-    } catch (err) {
-      logger.error('API', `${endpoint} — network error`, err);
-      return { ok: false, error: 'Could not reach the plugin.', unreachable: true };
-    }
+    return this.get(endpoint, this.guildConfig);
   }
 
   async addToWhitelist(player) {
@@ -116,8 +45,8 @@ class MinecraftApi {
       return this._get('/api/health');
     }
     try {
-      const res = await this._fetchWithTimeout(`${this.base}/api/health`, {
-        headers: { 'X-API-Key': this.apiKey },
+      const res = await this._fetchWithTimeout('http://' + this.guildConfig.mc_host + ':' + this.guildConfig.mc_port + '/api/health', {
+        headers: { 'X-API-Key': this.guildConfig.api_key },
       });
       return { ok: res.ok };
     } catch {
@@ -131,14 +60,7 @@ class MinecraftApi {
       const res = await this._get('/api/health');
       return res.ok;
     }
-    try {
-      const res = await this._fetchWithTimeout(`${this.base}/api/health`, {
-        headers: { 'X-API-Key': this.apiKey },
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
+    return super.healthCheck(this.guildConfig);
   }
 
   async getConfig() {
@@ -174,7 +96,7 @@ class MinecraftApi {
   }
 
   async getBalance(player) {
-    return this._get(`/api/economy/balance?player=${encodeURIComponent(player)}`);
+    return this._get('/api/economy/balance?player=' + encodeURIComponent(player));
   }
 
   async giveMoney(player, amount, reason) {

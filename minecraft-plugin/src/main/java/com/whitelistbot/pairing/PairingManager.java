@@ -48,8 +48,7 @@ public class PairingManager {
         }
     }
 
-    public void cleanup() {
-        long now = System.currentTimeMillis();
+    public synchronized void cleanup() {
         sessions.values().removeIf(s -> s.isExpired());
     }
 

@@ -14,66 +14,65 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ubuntu
+          username: ${{ secrets.VPS_USERNAME || 'ubuntu' }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
           timeout: 300s
           script: |
             # Set error handling
             set -euo pipefail
-            
+
             # Navigate to project directory (using ~ for user home)
             cd ~
-            
+
             # Clone or update the repository
             if [ -d "MC-DC-Whitelister" ]; then
               cd MC-DC-Whitelister
-              git reset --hard
+
+              # Save current state for rollback BEFORE reset
+              BACKUP_DIR="backup"
+              ROLLBACK_FILE="${BACKUP_DIR}/rollback-info"
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+              mkdir -p "${BACKUP_DIR}"
+              git status > "${BACKUP_DIR}/git_status_${TIMESTAMP}.txt" 2>&1
+              git diff > "${BACKUP_DIR}/git_diff_${TIMESTAMP}.txt" 2>&1
+              git rev-parse HEAD > "${BACKUP_DIR}/git_commit_${TIMESTAMP}.txt" 2>&1
+
+              echo "$(pwd)" > "${ROLLBACK_FILE}"
+              echo "${TIMESTAMP}" >> "${ROLLBACK_FILE}"
             else
-              git clone https://github.com/muzlik/MC-DC-Whitelister.git
+              git clone https://github.com/muzlik-gm/MC-DC-Whitelister.git
               cd MC-DC-Whitelister
             fi
-            
-            # Save current state for rollback
-            BACKUP_DIR="backup"
-            ROLLBACK_FILE="${BACKUP_DIR}/rollback-info"
-            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            
-            mkdir -p "${BACKUP_DIR}"
-            git status > "${BACKUP_DIR}/git_status_${TIMESTAMP}.txt" 2>&1
-            git diff > "${BACKUP_DIR}/git_diff_${TIMESTAMP}.txt" 2>&1
-            git rev-parse HEAD > "${BACKUP_DIR}/git_commit_${TIMESTAMP}.txt" 2>&1
-            
-            echo "$(pwd)" > "${ROLLBACK_FILE}"
-            echo "${TIMESTAMP}" >> "${ROLLBACK_FILE}"
-            
+
             # Pull the latest changes
             git reset --hard
             git pull origin main
-            
+
             # Install dependencies
-            npm --prefix discord-bot install
-            
+            npm --prefix discord-bot install || { echo "ERROR: npm install failed"; exit 1; }
+
             # Stop the bot before deployment
             sudo systemctl stop whitelist-bot || pkill -f "node src/index.js" || true
-            
+
             # Deploy changes
             echo "Deployment in progress..."
-            
+
             # Start the bot
-            sudo systemctl start whitelist-bot || (
+            sudo systemctl restart whitelist-bot || (
               cd "discord-bot"
               npm start >> ~/deploy.log 2>&1 &
             )
-            
+
             # Wait for bot to start
             sleep 10
-            
+
             # Verify bot is running
             if ! pgrep -f "node src/index.js" > /dev/null; then
               echo "ERROR: Bot failed to start after deployment. Triggering rollback..."
               bash rollback.sh
               exit 1
             fi
-            
+
             echo "Deploy complete"

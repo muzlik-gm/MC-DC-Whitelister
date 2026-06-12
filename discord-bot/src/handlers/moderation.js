@@ -129,6 +129,12 @@ async function handleWarn(ctx) {
 
   const apiRes = await api.warnPlayer(username, reason);
 
+  if (!apiRes.ok && apiRes.auth_failure) {
+    return ctx.editReply({
+      embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle('Warn Failed').setDescription('Connection lost — API key was rejected.')]
+    });
+  }
+
   const result = moderationDb.addWarning(
     ctx.guildId,
     uuid || username,
@@ -138,18 +144,12 @@ async function handleWarn(ctx) {
     reason
   );
 
-  if (!apiRes.ok && apiRes.auth_failure) {
-    return ctx.editReply({
-      embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle('Warn Failed').setDescription('Connection lost — API key was rejected.')]
-    });
-  }
-
   logAction(ctx.guildId, 'warn', ctx.userId, username, reason);
 
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle('Player Warned')
-    .setDescription(`**${username}** has been warned (ID: \`${result.id}\`).`)
+    .setDescription('**' + username + '** has been warned (ID: `' + result.id + '`).')
     .addFields({ name: 'Reason', value: reason, inline: false });
 
   return ctx.editReply({ embeds: [embed] });

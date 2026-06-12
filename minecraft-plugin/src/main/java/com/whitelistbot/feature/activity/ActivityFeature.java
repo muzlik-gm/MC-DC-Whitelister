@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.feature.Feature;
+import com.whitelistbot.feature.FeatureUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,8 +21,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -161,26 +160,6 @@ public class ActivityFeature implements Feature, Listener {
         }
     }
 
-    private boolean authenticate(HttpExchange exchange) {
-        String key = exchange.getRequestHeaders().getFirst("X-API-Key");
-        if (key == null || config.getApiKey() == null) return false;
-        if (key.length() != config.getApiKey().length()) return false;
-        int result = 0;
-        for (int i = 0; i < key.length(); i++) {
-            result |= key.charAt(i) ^ config.getApiKey().charAt(i);
-        }
-        return result == 0;
-    }
-
-    private void sendJson(HttpExchange exchange, int code, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(code, bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(bytes);
-        }
-    }
-
     private class PollEndpoint implements Endpoint {
         @Override
         public String getPath() {
@@ -191,12 +170,12 @@ public class ActivityFeature implements Feature, Listener {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
                     if (!"GET".equals(exchange.getRequestMethod())) {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                         return;
                     }
 
@@ -220,19 +199,12 @@ public class ActivityFeature implements Feature, Listener {
                     JsonObject res = new JsonObject();
                     res.addProperty("success", true);
                     res.add("events", arr);
-                    sendJson(exchange, 200, gson.toJson(res));
+                    FeatureUtils.sendJson(exchange, 200, gson.toJson(res));
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/activity/poll", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
-        }
-
-        private void sendError(HttpExchange exchange, int code, String message) throws IOException {
-            JsonObject obj = new JsonObject();
-            obj.addProperty("success", false);
-            obj.addProperty("error", message);
-            sendJson(exchange, code, gson.toJson(obj));
         }
     }
 }

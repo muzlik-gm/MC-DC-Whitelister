@@ -1,3 +1,5 @@
+const { EmbedBuilder } = require('discord.js');
+
 class CleanupService {
   constructor(config, logger, bot, apiClient, dbs) {
     this.config = config;
@@ -90,7 +92,6 @@ class CleanupService {
   }
 
   async handleActivityEvent(channel, guild, evt, gc) {
-    const { EmbedBuilder } = require('discord.js');
 
     const type = evt.type;
     const player = evt.player;
@@ -204,8 +205,9 @@ class CleanupService {
   }
 
   start() {
-    setInterval(() => this.performAllCleanups(), 300000);
+    const interval = setInterval(() => this.performAllCleanups(), 300000);
     this.logger.info('CleanupService', 'Cleanup service started');
+    return interval;
   }
 }
 

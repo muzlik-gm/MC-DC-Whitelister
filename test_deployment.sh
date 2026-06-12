@@ -13,7 +13,8 @@ echo "rollback.sh syntax check passed ✓"
 
 echo ""
 echo "=== Checking file permissions ==="
-ls -la deploy.sh rollback.sh | grep -E "^[^d].*\.sh"
+if [ -x "deploy.sh" ]; then echo "✓ deploy.sh is executable"; else echo "✗ deploy.sh is NOT executable"; fi
+if [ -x "rollback.sh" ]; then echo "✓ rollback.sh is executable"; else echo "✗ rollback.sh is NOT executable"; fi
 
 echo ""
 echo "=== Checking for critical files ==="

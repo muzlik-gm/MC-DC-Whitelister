@@ -9,12 +9,11 @@ import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.config.ConfigManager;
 import com.whitelistbot.data.DataStore;
 import com.whitelistbot.feature.Feature;
+import com.whitelistbot.feature.FeatureUtils;
 import com.whitelistbot.whitelist.WhitelistManager;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -64,61 +63,6 @@ public class WhitelistFeature implements Feature {
         );
     }
 
-    private boolean authenticate(HttpExchange exchange) {
-        String key = exchange.getRequestHeaders().getFirst("X-API-Key");
-        if (key == null || config.getApiKey() == null) return false;
-        return constantTimeEquals(config.getApiKey(), key);
-    }
-
-    private boolean constantTimeEquals(String a, String b) {
-        if (a.length() != b.length()) return false;
-        int result = 0;
-        for (int i = 0; i < a.length(); i++) {
-            result |= a.charAt(i) ^ b.charAt(i);
-        }
-        return result == 0;
-    }
-
-    private void sendJson(HttpExchange exchange, int code, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-        exchange.sendResponseHeaders(code, bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(bytes);
-        }
-    }
-
-    private void sendError(HttpExchange exchange, int code, String message) throws IOException {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("success", false);
-        obj.addProperty("error", message);
-        sendJson(exchange, code, gson.toJson(obj));
-    }
-
-    private void sendSuccess(HttpExchange exchange, String message) throws IOException {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("success", true);
-        if (message != null) obj.addProperty("message", message);
-        sendJson(exchange, 200, gson.toJson(obj));
-    }
-
-    private String readBody(HttpExchange exchange) throws IOException {
-        try (InputStream is = exchange.getRequestBody();
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = is.read(buf)) != -1) {
-                bos.write(buf, 0, n);
-            }
-            return bos.toString(StandardCharsets.UTF_8);
-        }
-    }
-
-    private JsonObject parseBody(HttpExchange exchange) throws IOException {
-        String body = readBody(exchange);
-        return gson.fromJson(body, JsonObject.class);
-    }
-
     private class HealthEndpoint implements Endpoint {
         @Override
         public String getPath() {
@@ -129,14 +73,14 @@ public class WhitelistFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
-                    sendSuccess(exchange, "OK");
+                    FeatureUtils.sendSuccess(exchange, "OK");
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Health error", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -152,38 +96,40 @@ public class WhitelistFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
 
-                    JsonObject req = parseBody(exchange);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player")) {
-                        sendError(exchange, 400, "Missing 'player' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' field");
                         return;
                     }
 
                     String player = req.get("player").getAsString();
-                    if (player.length() < 3 || player.length() > 16 || !player.matches("[a-zA-Z0-9_]+")) {
-                        sendError(exchange, 400, "Invalid Minecraft username");
+                    if (!FeatureUtils.isValidMinecraftUsername(player)) {
+                        FeatureUtils.sendError(exchange, 400, "Invalid Minecraft username");
                         return;
                     }
 
                     boolean added = whitelist.addPlayer(player);
                     if (added) {
                         Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                            OfflinePlayer off = Bukkit.getOfflinePlayer(player);
-                            dataStore.setLinkTimestamp(off.getUniqueId());
+                            OfflinePlayer off = Bukkit.getOfflinePlayerIfCached(player);
+                            if (off != null) {
+                                dataStore.setLinkTimestamp(off.getUniqueId());
+                            }
                             plugin.getLogger().info("Whitelisted: " + player);
                             return null;
                         }).get(10, TimeUnit.SECONDS);
-                        sendSuccess(exchange, player + " has been whitelisted");
+                        FeatureUtils.sendSuccess(exchange, player + " has been whitelisted");
                     } else {
-                        sendError(exchange, 409, player + " is already whitelisted");
+                        FeatureUtils.sendError(exchange, 409, player + " is already whitelisted");
                     }
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in whitelist/add", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -199,14 +145,14 @@ public class WhitelistFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
 
-                    JsonObject req = parseBody(exchange);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("player")) {
-                        sendError(exchange, 400, "Missing 'player' field");
+                        FeatureUtils.sendError(exchange, 400, "Missing 'player' field");
                         return;
                     }
 
@@ -215,13 +161,13 @@ public class WhitelistFeature implements Feature {
 
                     if (removed) {
                         plugin.getLogger().info("Unwhitelisted: " + player);
-                        sendSuccess(exchange, player + " has been unwhitelisted");
+                        FeatureUtils.sendSuccess(exchange, player + " has been unwhitelisted");
                     } else {
-                        sendError(exchange, 404, player + " is not whitelisted");
+                        FeatureUtils.sendError(exchange, 404, player + " is not whitelisted");
                     }
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in whitelist/remove", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }
@@ -237,8 +183,8 @@ public class WhitelistFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    if (!authenticate(exchange)) {
-                        sendError(exchange, 401, "Unauthorized");
+                    if (!FeatureUtils.authenticate(exchange, config.getApiKey())) {
+                        FeatureUtils.sendError(exchange, 401, "Unauthorized");
                         return;
                     }
 
@@ -270,12 +216,12 @@ public class WhitelistFeature implements Feature {
                         data.add("anti_alt", antiAlt);
 
                         data.addProperty("success", true);
-                        sendJson(exchange, 200, gson.toJson(data));
+                        FeatureUtils.sendJson(exchange, 200, gson.toJson(data));
 
                     } else if ("POST".equals(method)) {
-                        JsonObject req = parseBody(exchange);
+                        JsonObject req = FeatureUtils.parseBody(exchange);
                         if (req == null) {
-                            sendError(exchange, 400, "Invalid JSON");
+                            FeatureUtils.sendError(exchange, 400, "Invalid JSON");
                             return;
                         }
 
@@ -300,14 +246,14 @@ public class WhitelistFeature implements Feature {
                         }
 
                         plugin.saveConfig();
-                        sendSuccess(exchange, "Config updated");
+                        FeatureUtils.sendSuccess(exchange, "Config updated");
 
                     } else {
-                        sendError(exchange, 405, "Method not allowed");
+                        FeatureUtils.sendError(exchange, 405, "Method not allowed");
                     }
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error in /api/config", e);
-                    sendError(exchange, 500, "Internal server error");
+                    FeatureUtils.sendError(exchange, 500, "Internal server error");
                 }
             };
         }

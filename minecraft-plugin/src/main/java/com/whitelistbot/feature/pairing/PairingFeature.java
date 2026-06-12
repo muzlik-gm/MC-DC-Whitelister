@@ -6,12 +6,11 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.whitelistbot.WhitelistBotPlugin;
 import com.whitelistbot.feature.Feature;
+import com.whitelistbot.feature.FeatureUtils;
 import com.whitelistbot.pairing.PairingManager;
 import com.whitelistbot.pairing.PairingSession;
 import org.bukkit.Bukkit;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -46,35 +45,21 @@ public class PairingFeature implements Feature {
         return Arrays.asList(new ValidateEndpoint(), new ChallengeEndpoint(), new DisconnectEndpoint());
     }
 
-    private String readBody(HttpExchange exchange) throws IOException {
-        try (InputStream is = exchange.getRequestBody();
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = is.read(buf)) != -1) bos.write(buf, 0, n);
-            return bos.toString(StandardCharsets.UTF_8);
-        }
-    }
-
-    private JsonObject parseBody(HttpExchange exchange) throws IOException {
-        return gson.fromJson(readBody(exchange), JsonObject.class);
-    }
-
-    private void reply(HttpExchange exchange, int code, String json) throws IOException {
-        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+    private void reply(HttpExchange exchange, int code, String json) throws java.io.IOException {
+        byte[] bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
         exchange.sendResponseHeaders(code, bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
+        try (java.io.OutputStream out = exchange.getResponseBody()) {
             out.write(bytes);
         }
     }
 
-    private void ok(HttpExchange exchange, JsonObject data) throws IOException {
+    private void ok(HttpExchange exchange, JsonObject data) throws java.io.IOException {
         data.addProperty("success", true);
         reply(exchange, 200, gson.toJson(data));
     }
 
-    private void fail(HttpExchange exchange, int code, String msg) throws IOException {
+    private void fail(HttpExchange exchange, int code, String msg) throws java.io.IOException {
         JsonObject o = new JsonObject();
         o.addProperty("success", false);
         o.addProperty("error", msg);
@@ -89,7 +74,7 @@ public class PairingFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    JsonObject req = parseBody(exchange);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("code")) {
                         fail(exchange, 400, "Missing 'code' field");
                         return;
@@ -146,7 +131,7 @@ public class PairingFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    JsonObject req = parseBody(exchange);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     if (req == null || !req.has("code")) {
                         fail(exchange, 400, "Missing 'code' field");
                         return;
@@ -181,13 +166,12 @@ public class PairingFeature implements Feature {
         public HttpHandler getHandler() {
             return exchange -> {
                 try {
-                    String authKey = exchange.getRequestHeaders().getFirst("X-API-Key");
-                    if (!plugin.getConfigManager().getApiKey().equals(authKey)) {
+                    if (!FeatureUtils.authenticate(exchange, plugin.getConfigManager().getApiKey())) {
                         fail(exchange, 401, "Unauthorized");
                         return;
                     }
 
-                    JsonObject req = parseBody(exchange);
+                    JsonObject req = FeatureUtils.parseBody(exchange);
                     String guildId = req != null && req.has("guild_id") ? req.get("guild_id").getAsString() : "unknown";
 
                     JsonObject data = new JsonObject();

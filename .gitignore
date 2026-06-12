@@ -5,11 +5,16 @@ target/
 *.db
 *.db-shm
 *.db-wal
+deploy.log
 
 # Secrets
 discord-bot/config.json
 discord-bot/.env
 .env
+
+# Directories
+discord-bot/data/
+backup/
 
 # OS
 .DS_Store
